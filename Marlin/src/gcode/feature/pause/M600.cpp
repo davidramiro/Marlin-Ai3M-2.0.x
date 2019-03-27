@@ -62,20 +62,22 @@
  */
 void GcodeSuite::M600() {
 
-  #ifdef SDSUPPORT
-    if (card.isPrinting()) { // are we printing from sd?
-      #ifdef ANYCUBIC_TFT_DEBUG
-          SERIAL_ECHOLNPGM("DEBUG: Enter M600 TFTstate routine");
-      #endif
-      AnycubicTFT.TFTstate=ANYCUBIC_TFT_STATE_SDPAUSE_REQ; // enter correct display state to show resume button
-      #ifdef ANYCUBIC_TFT_DEBUG
-          SERIAL_ECHOLNPGM("DEBUG: Set TFTstate to SDPAUSE_REQ");
-      #endif
-      AnycubicTFT.PausedByFilamentChange=true; // set flag to ensure correct resume routine gets executed
-      #ifdef ANYCUBIC_TFT_DEBUG
-          SERIAL_ECHOLNPGM("DEBUG: Set filament change flag");
-      #endif
-    }
+  #ifdef ANYCUBIC_TFT_MODEL
+    #ifdef SDSUPPORT
+      if (card.isPrinting()) { // are we printing from sd?
+        #ifdef ANYCUBIC_TFT_DEBUG
+            SERIAL_ECHOLNPGM("DEBUG: Enter M600 TFTstate routine");
+        #endif
+        AnycubicTFT.TFTstate=ANYCUBIC_TFT_STATE_SDPAUSE_REQ; // enter correct display state to show resume button
+        #ifdef ANYCUBIC_TFT_DEBUG
+            SERIAL_ECHOLNPGM("DEBUG: Set TFTstate to SDPAUSE_REQ");
+        #endif
+        AnycubicTFT.PausedByFilamentChange=true; // set flag to ensure correct resume routine gets executed
+        #ifdef ANYCUBIC_TFT_DEBUG
+            SERIAL_ECHOLNPGM("DEBUG: Set filament change flag");
+        #endif
+      }
+    #endif
   #endif
 
   point_t park_point = NOZZLE_PARK_POINT;

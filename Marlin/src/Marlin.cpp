@@ -176,6 +176,10 @@
   #include "libs/L6470/L6470_Marlin.h"
 #endif
 
+#if ENABLED(ANYCUBIC_TFT_MODEL)
+  #include "lcd/anycubic_TFT.h"
+#endif
+
 bool Running = true;
 
 #if ENABLED(TEMPERATURE_UNITS_SUPPORT)
@@ -320,6 +324,25 @@ void disable_all_steppers() {
   disable_e_steppers();
 }
 
+#ifdef ENDSTOP_BEEP
+  void EndstopBeep() {
+    static char last_status=((READ(X_MIN_PIN)<<2)|(READ(Y_MIN_PIN)<<1)|READ(X_MAX_PIN));
+    static unsigned char now_status;
+
+    now_status=((READ(X_MIN_PIN)<<2)|(READ(Y_MIN_PIN)<<1)|READ(X_MAX_PIN))&0xff;
+
+    if(now_status<last_status) {
+      static millis_t endstop_ms = millis() + 300UL;
+      if (ELAPSED(millis(), endstop_ms)) {
+        buzzer.tone(60, 2000);
+      }
+    last_status=now_status;
+    } else if(now_status!=last_status) {
+      last_status=now_status;
+    }
+  }
+#endif
+
 #if HAS_FILAMENT_SENSOR
 
   void event_filament_runout() {
@@ -436,6 +459,9 @@ void manage_inactivity(const bool ignore_stepper_queue/*=false*/) {
     runout.run();
   #endif
 
+  #if ENABLED(ANYCUBIC_TFT_MODEL) && ENABLED(ANYCUBIC_FILAMENT_RUNOUT_SENSOR)
+    AnycubicTFT.FilamentRunout();
+  #endif
   if (commands_in_queue < BUFSIZE) get_available_commands();
 
   const millis_t ms = millis();
@@ -672,6 +698,14 @@ void idle(
     max7219.idle_tasks();
   #endif
 
+  #ifdef ANYCUBIC_TFT_MODEL
+    AnycubicTFT.CommandScan();
+  #endif
+
+  #ifdef ENDSTOP_BEEP
+    EndstopBeep();
+  #endif
+
   ui.update();
 
   #if ENABLED(HOST_KEEPALIVE_FEATURE)
@@ -739,6 +773,10 @@ void kill(PGM_P const lcd_msg/*=NULL*/) {
     ui.kill_screen(lcd_msg ? lcd_msg : PSTR(MSG_KILLED));
   #else
     UNUSED(lcd_msg);
+  #endif
+
+  #ifdef ANYCUBIC_TFT_MODEL
+    AnycubicTFT.KillTFT();
   #endif
 
   #ifdef ACTION_ON_KILL
@@ -900,6 +938,10 @@ void setup() {
   SERIAL_ECHOLNPGM("start");
   SERIAL_ECHO_START();
 
+  #ifdef ANYCUBIC_TFT_MODEL
+    AnycubicTFT.Setup();
+  #endif
+
   #if TMC_HAS_SPI
     #if DISABLED(TMC_USE_SW_SPI)
       SPI.begin();
@@ -926,6 +968,10 @@ void setup() {
   SERIAL_ECHOPGM(MSG_MARLIN);
   SERIAL_CHAR(' ');
   SERIAL_ECHOLNPGM(SHORT_BUILD_VERSION);
+  SERIAL_EOL();
+  SERIAL_ECHOPGM(MSG_MARLIN_AI3M);
+  SERIAL_CHAR(' ');
+  SERIAL_ECHOLNPGM(CUSTOM_BUILD_VERSION);
   SERIAL_EOL();
 
   #if defined(STRING_DISTRIBUTION_DATE) && defined(STRING_CONFIG_H_AUTHOR)
@@ -1149,5 +1195,9 @@ void loop() {
     advance_command_queue();
     endstops.event_handler();
     idle();
+    #ifdef ANYCUBIC_TFT_MODEL
+      AnycubicTFT.CommandScan();
+    #endif
+
   }
 }

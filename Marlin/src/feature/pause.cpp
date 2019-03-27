@@ -68,6 +68,10 @@ fil_change_settings_t fc_settings[EXTRUDERS];
   #include "../sd/cardreader.h"
 #endif
 
+#ifdef ANYCUBIC_TFT_MODEL
+  #include "../lcd/anycubic_TFT.h"
+#endif
+
 #if HAS_BUZZER
   static void filament_change_beep(const int8_t max_beep_count, const bool init=false) {
     if (pause_mode == PAUSE_MODE_PAUSE_PRINT) return;
@@ -475,6 +479,9 @@ void show_continue_prompt(const bool is_reload) {
 
 void wait_for_confirmation(const bool is_reload/*=false*/, const int8_t max_beep_count/*=0*/ DXC_ARGS) {
   bool nozzle_timed_out = false;
+  #ifdef ANYCUBIC_TFT_MODEL
+    AnycubicTFT.PausedByNozzleTimeout = false;
+  #endif
 
   show_continue_prompt(is_reload);
 
@@ -512,6 +519,11 @@ void wait_for_confirmation(const bool is_reload/*=false*/, const int8_t max_beep
     // Wait for the user to press the button to re-heat the nozzle, then
     // re-heat the nozzle, re-show the continue prompt, restart idle timers, start over
     if (nozzle_timed_out) {
+
+      #ifdef ANYCUBIC_TFT_MODEL
+        AnycubicTFT.PausedByNozzleTimeout = true;
+      #endif
+
       #if HAS_LCD_MENU
         lcd_pause_show_message(PAUSE_MESSAGE_HEAT);
       #endif
@@ -594,6 +606,9 @@ void resume_print(const float &slow_load_length/*=0*/, const float &fast_load_le
 
   // Re-enable the heaters if they timed out
   bool nozzle_timed_out = false;
+  #ifdef ANYCUBIC_TFT_MODEL
+    AnycubicTFT.PausedByNozzleTimeout = false;
+  #endif
   HOTEND_LOOP() {
     nozzle_timed_out |= thermalManager.hotend_idle[e].timed_out;
     thermalManager.reset_heater_idle_timer(e);

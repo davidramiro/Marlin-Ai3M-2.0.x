@@ -380,7 +380,7 @@ temp_range_t Temperature::temp_range[HOTENDS] = ARRAY_BY_HOTENDS(sensor_heater_0
       next_auto_fan_check_ms = next_temp_ms + 2500UL;
     #endif
 
-    if (target > GHV(BED_MAXTEMP, temp_range[heater].maxtemp) - 15) {
+    if (target > GHV(BED_MAXTEMP, temp_range[heater].maxtemp) - 10) {
       SERIAL_ECHOLNPGM(MSG_PID_TEMP_TOO_HIGH);
       return;
     }

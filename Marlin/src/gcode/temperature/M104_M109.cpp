@@ -27,6 +27,10 @@
 #include "../../lcd/ultralcd.h"
 #include "../../Marlin.h"
 
+#ifdef ANYCUBIC_TFT_MODEL
+  #include "../../lcd/anycubic_TFT.h"
+#endif
+
 #if ENABLED(PRINTJOB_TIMER_AUTOSTART)
   #include "../../module/printcounter.h"
 #endif
@@ -76,9 +80,12 @@ void GcodeSuite::M104() {
     #endif
   }
 
+
+
   #if ENABLED(AUTOTEMP)
     planner.autotemp_M104_M109();
   #endif
+
 }
 
 /**
@@ -131,10 +138,23 @@ void GcodeSuite::M109() {
     #endif
   }
 
+  #ifdef ANYCUBIC_TFT_MODEL
+    AnycubicTFT.HeatingStart();
+  #endif
+
   #if ENABLED(AUTOTEMP)
     planner.autotemp_M104_M109();
   #endif
 
   if (set_temp)
     (void)thermalManager.wait_for_hotend(target_extruder, no_wait_for_cooling);
+
+  // flush the serial buffer after heating to prevent lockup by m105
+  SERIAL_FLUSH();
+
+  #ifdef ANYCUBIC_TFT_MODEL
+    AnycubicTFT.CommandScan();
+    AnycubicTFT.BedHeatingDone();
+  #endif
+
 }

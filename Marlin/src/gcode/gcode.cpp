@@ -669,6 +669,8 @@ void GcodeSuite::process_parsed_command(
         M810_819(); break;                                        // M810-M819: Define/execute G-code macro
       #endif
 
+      case 888: M888(); break;                                    // M888: Ultrabase cooldown (EXPERIMENTAL)
+
       #if ENABLED(LIN_ADVANCE)
         case 900: M900(); break;                                  // M900: Set advance K factor.
       #endif

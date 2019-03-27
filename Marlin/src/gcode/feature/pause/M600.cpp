@@ -29,6 +29,11 @@
 #include "../../../module/motion.h"
 #include "../../../module/printcounter.h"
 
+#ifdef ANYCUBIC_TFT_MODEL
+  #include "../../../lcd/anycubic_TFT.h"
+  #include "../../../sd/cardreader.h"
+#endif
+
 #if EXTRUDERS > 1
   #include "../../../module/tool_change.h"
 #endif
@@ -56,6 +61,23 @@
  *  Default values are used for omitted arguments.
  */
 void GcodeSuite::M600() {
+
+  #ifdef SDSUPPORT
+    if (card.isPrinting()) { // are we printing from sd?
+      #ifdef ANYCUBIC_TFT_DEBUG
+          SERIAL_ECHOLNPGM("DEBUG: Enter M600 TFTstate routine");
+      #endif
+      AnycubicTFT.TFTstate=ANYCUBIC_TFT_STATE_SDPAUSE_REQ; // enter correct display state to show resume button
+      #ifdef ANYCUBIC_TFT_DEBUG
+          SERIAL_ECHOLNPGM("DEBUG: Set TFTstate to SDPAUSE_REQ");
+      #endif
+      AnycubicTFT.PausedByFilamentChange=true; // set flag to ensure correct resume routine gets executed
+      #ifdef ANYCUBIC_TFT_DEBUG
+          SERIAL_ECHOLNPGM("DEBUG: Set filament change flag");
+      #endif
+    }
+  #endif
+
   point_t park_point = NOZZLE_PARK_POINT;
 
   const int8_t target_extruder = get_target_extruder_from_command();

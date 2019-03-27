@@ -31,6 +31,9 @@
   #include "../../lcd/ultralcd.h"
 #endif
 
+#if ENABLED(ANYCUBIC_TFT_MODEL)
+  #include "../../lcd/anycubic_TFT.h"
+#endif
 #if HAS_SUICIDE
   #include "../../Marlin.h"
 #endif
@@ -79,6 +82,11 @@
     #if HAS_LCD_MENU
       ui.reset_status();
     #endif
+
+    #ifdef ANYCUBIC_TFT_MODEL
+      AnycubicTFT.CommandScan();
+    #endif
+
   }
 
 #endif // HAS_POWER_SWITCH

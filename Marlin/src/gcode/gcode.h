@@ -232,6 +232,7 @@
  * M867 - Enable/disable or toggle error correction for position encoder modules.
  * M868 - Report or set position encoder module error correction threshold.
  * M869 - Report position encoder module error.
+ * M888 - Ultrabase cooldown: Let the parts cooling fan hover above the finished print to cool down the bed. EXPERIMENTAL FEATURE!
  * M900 - Get or Set Linear Advance K-factor. (Requires LIN_ADVANCE)
  * M906 - Set or get motor current in milliamps using axis codes X, Y, Z, E. Report values if no axis codes given. (Requires at least one _DRIVER_TYPE defined as TMC2130/TMC2208/TMC2660)
  * M907 - Set digital trimpot motor current using axis codes. (Requires a board with digital trimpots)
@@ -801,6 +802,8 @@ private:
   #if ENABLED(SKEW_CORRECTION_GCODE)
     static void M852();
   #endif
+
+   static void M888(); // M888: Ultrabase cooldown (EXPERIMENTAL)
 
   #if ENABLED(I2C_POSITION_ENCODERS)
     FORCE_INLINE static void M860() { I2CPEM.M860(); }

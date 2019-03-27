@@ -567,7 +567,7 @@ class Temperature {
       #if ENABLED(AUTO_POWER_CONTROL)
         powerManager.power_on();
       #endif
-      temp_hotend[HOTEND_INDEX].target = MIN(celsius, temp_range[HOTEND_INDEX].maxtemp - 15);
+      temp_hotend[HOTEND_INDEX].target = MIN(celsius, temp_range[HOTEND_INDEX].maxtemp - 10);
       start_watching_heater(HOTEND_INDEX);
     }
 

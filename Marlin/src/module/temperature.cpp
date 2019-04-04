@@ -32,6 +32,7 @@
 #include "planner.h"
 #include "../core/language.h"
 #include "../HAL/shared/Delay.h"
+#include "../libs/buzzer.h"
 
 #define MAX6675_SEPARATE_SPI EITHER(HEATER_0_USES_MAX6675, HEATER_1_USES_MAX6675) && PIN_EXISTS(MAX6675_SCK, MAX6675_DO)
 
@@ -529,6 +530,8 @@ temp_range_t Temperature::temp_range[HOTENDS] = ARRAY_BY_HOTENDS(sensor_heater_0
       }
 
       if (cycles > ncycles && cycles > 2) {
+        buzzer.tone(105, 1108);
+        buzzer.tone(210, 1661);
         SERIAL_ECHOLNPGM(MSG_PID_AUTOTUNE_FINISHED);
 
         #if HAS_PID_FOR_BOTH

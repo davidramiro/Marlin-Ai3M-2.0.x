@@ -75,7 +75,7 @@ void GcodeSuite::M190() {
 
   thermalManager.wait_for_bed(no_wait_for_cooling);
 
-  SERIAL_FLUSH();
+  //SERIAL_FLUSH();
 }
 
 #endif // HAS_HEATED_BED

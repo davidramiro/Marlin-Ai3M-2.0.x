@@ -479,9 +479,6 @@ void show_continue_prompt(const bool is_reload) {
 
 void wait_for_confirmation(const bool is_reload/*=false*/, const int8_t max_beep_count/*=0*/ DXC_ARGS) {
   bool nozzle_timed_out = false;
-  #ifdef ANYCUBIC_TFT_MODEL
-    AnycubicTFT.PausedByNozzleTimeout = false;
-  #endif
 
   show_continue_prompt(is_reload);
 
@@ -521,7 +518,13 @@ void wait_for_confirmation(const bool is_reload/*=false*/, const int8_t max_beep
     if (nozzle_timed_out) {
 
       #ifdef ANYCUBIC_TFT_MODEL
-        AnycubicTFT.PausedByNozzleTimeout = true;
+        if (AnycubicTFT.ai3m_pause_state < 3) {
+          AnycubicTFT.ai3m_pause_state += 2;
+          #ifdef ANYCUBIC_TFT_DEBUG
+            SERIAL_ECHOPAIR(" DEBUG: NTO - AI3M Pause State set to: ", AnycubicTFT.ai3m_pause_state);
+            SERIAL_EOL();
+          #endif
+          }
       #endif
 
       #if HAS_LCD_MENU
@@ -558,6 +561,15 @@ void wait_for_confirmation(const bool is_reload/*=false*/, const int8_t max_beep
       #endif
       wait_for_user = true;
       nozzle_timed_out = false;
+      #ifdef ANYCUBIC_TFT_MODEL
+        if (AnycubicTFT.ai3m_pause_state > 3) {
+          AnycubicTFT.ai3m_pause_state -= 2;
+          #ifdef ANYCUBIC_TFT_DEBUG
+            SERIAL_ECHOPAIR(" DEBUG: NTO - AI3M Pause State set to: ", AnycubicTFT.ai3m_pause_state);
+            SERIAL_EOL();
+          #endif
+        }
+      #endif
 
       #if HAS_BUZZER
         filament_change_beep(max_beep_count, true);
@@ -607,7 +619,13 @@ void resume_print(const float &slow_load_length/*=0*/, const float &fast_load_le
   // Re-enable the heaters if they timed out
   bool nozzle_timed_out = false;
   #ifdef ANYCUBIC_TFT_MODEL
-    AnycubicTFT.PausedByNozzleTimeout = false;
+    if (AnycubicTFT.ai3m_pause_state > 3) {
+      AnycubicTFT.ai3m_pause_state -= 2;
+      #ifdef ANYCUBIC_TFT_DEBUG
+        SERIAL_ECHOPAIR(" DEBUG: NTO - AI3M Pause State set to: ", AnycubicTFT.ai3m_pause_state);
+        SERIAL_EOL();
+      #endif
+      }
   #endif
   HOTEND_LOOP() {
     nozzle_timed_out |= thermalManager.hotend_idle[e].timed_out;

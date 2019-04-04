@@ -65,16 +65,19 @@ void GcodeSuite::M600() {
   #ifdef ANYCUBIC_TFT_MODEL
     #ifdef SDSUPPORT
       if (card.isPrinting()) { // are we printing from sd?
+        if (AnycubicTFT.ai3m_pause_state < 2) {
+          AnycubicTFT.ai3m_pause_state = 2;
+          #ifdef ANYCUBIC_TFT_DEBUG
+            SERIAL_ECHOPAIR(" DEBUG: M600 - AI3M Pause State set to: ", AnycubicTFT.ai3m_pause_state);
+            SERIAL_EOL();
+          #endif
+        }
         #ifdef ANYCUBIC_TFT_DEBUG
             SERIAL_ECHOLNPGM("DEBUG: Enter M600 TFTstate routine");
         #endif
         AnycubicTFT.TFTstate=ANYCUBIC_TFT_STATE_SDPAUSE_REQ; // enter correct display state to show resume button
         #ifdef ANYCUBIC_TFT_DEBUG
             SERIAL_ECHOLNPGM("DEBUG: Set TFTstate to SDPAUSE_REQ");
-        #endif
-        AnycubicTFT.PausedByFilamentChange=true; // set flag to ensure correct resume routine gets executed
-        #ifdef ANYCUBIC_TFT_DEBUG
-            SERIAL_ECHOLNPGM("DEBUG: Set filament change flag");
         #endif
       }
     #endif

@@ -530,8 +530,8 @@ temp_range_t Temperature::temp_range[HOTENDS] = ARRAY_BY_HOTENDS(sensor_heater_0
       }
 
       if (cycles > ncycles && cycles > 2) {
-        buzzer.tone(105, 1108);
-        buzzer.tone(210, 1661);
+        BUZZ(105, 1108);
+        BUZZ(210, 1661);
         SERIAL_ECHOLNPGM(MSG_PID_AUTOTUNE_FINISHED);
 
         #if HAS_PID_FOR_BOTH

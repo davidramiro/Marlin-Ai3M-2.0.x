@@ -1,9 +1,9 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (C) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
- * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,10 +42,10 @@
    *
    *   M605 S0 : (FULL_CONTROL) The slicer has full control over both X-carriages and can achieve optimal travel
    *             results as long as it supports dual X-carriages.
-   * 
+   *
    *   M605 S1 : (AUTO_PARK) The firmware automatically parks and unparks the X-carriages on tool-change so that
    *             additional slicer support is not required.
-   * 
+   *
    *   M605 S2 X R : (DUPLICATION) The firmware moves the second X-carriage and extruder in synchronization with
    *             the first X-carriage and extruder, to print 2 copies of the same object at the same time.
    *             Set the constant X-offset and temperature differential with M605 S2 X[offs] R[deg] and
@@ -92,7 +92,7 @@
         case DXC_AUTO_PARK_MODE:
           break;
         case DXC_DUPLICATION_MODE:
-          if (parser.seen('X')) duplicate_extruder_x_offset = MAX(parser.value_linear_units(), X2_MIN_POS - x_home_pos(0));
+          if (parser.seen('X')) duplicate_extruder_x_offset = _MAX(parser.value_linear_units(), X2_MIN_POS - x_home_pos(0));
           if (parser.seen('R')) duplicate_extruder_temp_offset = parser.value_celsius_diff();
           if (active_extruder != 0) tool_change(0);
           break;
@@ -132,7 +132,7 @@
         DEBUG_ECHOPAIR("\nX2 Home X: ", x_home_pos(1), "\nX2_MIN_POS=", int(X2_MIN_POS), "\nX2_MAX_POS=", int(X2_MAX_POS));
         DEBUG_ECHOPAIR("\nX2_HOME_DIR=", int(X2_HOME_DIR), "\nX2_HOME_POS=", int(X2_HOME_POS));
         DEBUG_ECHOPAIR("\nDEFAULT_DUAL_X_CARRIAGE_MODE=", STRINGIFY(DEFAULT_DUAL_X_CARRIAGE_MODE));
-        DEBUG_ECHOPAIR("\nTOOLCHANGE_ZRAISE=", float(TOOLCHANGE_ZRAISE));
+        DEBUG_ECHOPAIR("\toolchange_settings.z_raise=", toolchange_settings.z_raise);
         DEBUG_ECHOPAIR("\nDEFAULT_DUPLICATION_X_OFFSET=", int(DEFAULT_DUPLICATION_X_OFFSET));
         DEBUG_EOL();
 
@@ -158,11 +158,12 @@
    *             A value of 0 disables duplication.
    */
   void GcodeSuite::M605() {
+    bool ena = false;
     if (parser.seen("EPS")) {
       planner.synchronize();
       if (parser.seenval('P')) duplication_e_mask = parser.value_int();   // Set the mask directly
-      else if (parser.seenval('E')) duplication_e_mask = pow(2, e + 1) - 1;    // Set the mask by E index
-      const bool ena = (2 == parser.intval('S', extruder_duplication_enabled ? 2 : 0));
+      else if (parser.seenval('E')) duplication_e_mask = pow(2, parser.value_int() + 1) - 1; // Set the mask by E index
+      ena = (2 == parser.intval('S', extruder_duplication_enabled ? 2 : 0));
       extruder_duplication_enabled = ena && (duplication_e_mask >= 3);
     }
     SERIAL_ECHO_START();

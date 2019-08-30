@@ -1,9 +1,9 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (C) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
- * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,7 +28,6 @@
  */
 
 #include <avr/io.h>
-#include "../../core/macros.h"
 
 #define AVR_AT90USB1286_FAMILY (defined(__AVR_AT90USB1287__) || defined(__AVR_AT90USB1286__) || defined(__AVR_AT90USB1286P__) || defined(__AVR_AT90USB646__) || defined(__AVR_AT90USB646P__) || defined(__AVR_AT90USB647__))
 #define AVR_ATmega1284_FAMILY (defined(__AVR_ATmega644__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644PA__) || defined(__AVR_ATmega1284P__))
@@ -40,15 +39,15 @@
  * Include Ports and Functions
  */
 #if AVR_ATmega328_FAMILY
-  #include "fastio_168.h"
+  #include "fastio/fastio_168.h"
 #elif AVR_ATmega1284_FAMILY
-  #include "fastio_644.h"
+  #include "fastio/fastio_644.h"
 #elif AVR_ATmega2560_FAMILY
-  #include "fastio_1280.h"
+  #include "fastio/fastio_1280.h"
 #elif AVR_AT90USB1286_FAMILY
-  #include "fastio_AT90USB.h"
+  #include "fastio/fastio_AT90USB.h"
 #elif AVR_ATmega2561_FAMILY
-  #include "fastio_1281.h"
+  #include "fastio/fastio_1281.h"
 #else
   #error "No FastIO definition for the selected AVR Board."
 #endif
@@ -81,9 +80,8 @@
 #define _SET_INPUT(IO)        CBI(DIO ## IO ## _DDR, DIO ## IO ## _PIN)
 #define _SET_OUTPUT(IO)       SBI(DIO ## IO ## _DDR, DIO ## IO ## _PIN)
 
-#define _IS_INPUT(IO)        !TEST(DIO ## IO ## _DDR, DIO ## IO ## _PIN)
+#define _IS_INPUT(IO)         !TEST(DIO ## IO ## _DDR, DIO ## IO ## _PIN)
 #define _IS_OUTPUT(IO)        TEST(DIO ## IO ## _DDR, DIO ## IO ## _PIN)
-#define _HAS_TIMER(IO)        DIO ## IO ## _PWM
 
 // digitalRead/Write wrappers
 #ifdef FASTIO_EXT_START
@@ -106,7 +104,6 @@
 
 #define IS_INPUT(IO)          _IS_INPUT(IO)
 #define IS_OUTPUT(IO)         _IS_OUTPUT(IO)
-#define HAS_TIMER(IO)         _HAS_TIMER(IO)
 
 #define OUT_WRITE(IO,V)       do{ SET_OUTPUT(IO); WRITE(IO,V); }while(0)
 
@@ -275,6 +272,8 @@ enum ClockSource2 : char {
 #define SET_FOCB(T,V) SET_FOC(T,B,V)
 #define SET_FOCC(T,V) SET_FOC(T,C,V)
 
+#if 0
+
 /**
  * PWM availability macros
  */
@@ -288,11 +287,11 @@ enum ClockSource2 : char {
 
 #if ANY_PIN(FAN, FAN1, FAN2)
   #if PIN_EXISTS(FAN2)
-    #define PWM_CHK_FAN_A(P) (P == FAN_PIN || P == FAN1_PIN || P == FAN2_PIN)
+    #define PWM_CHK_FAN_A(P) (P == FAN0_PIN || P == FAN1_PIN || P == FAN2_PIN)
   #elif PIN_EXISTS(FAN1)
-    #define PWM_CHK_FAN_A(P) (P == FAN_PIN || P == FAN1_PIN)
+    #define PWM_CHK_FAN_A(P) (P == FAN0_PIN || P == FAN1_PIN)
   #else
-    #define PWM_CHK_FAN_A(P) (P == FAN_PIN)
+    #define PWM_CHK_FAN_A(P) (P == FAN0_PIN)
   #endif
 #else
   #define PWM_CHK_FAN_A(P) false
@@ -338,6 +337,8 @@ enum ClockSource2 : char {
 
 #define PWM_CHK(P) (PWM_CHK_HEATER(P) || PWM_CHK_SERVO(P) || PWM_CHK_MOTOR_CURRENT(P) || PWM_CHK_FAN_A(P) || PWM_CHK_FAN_B(P))
 
+#endif // PWM_CHK is not used in Marlin
+
 // define which hardware PWMs are available for the current CPU
 // all timer 1 PWMS deleted from this list because they are never available
 #if AVR_ATmega2560_FAMILY
@@ -353,5 +354,3 @@ enum ClockSource2 : char {
 #else
   #error "unknown CPU"
 #endif
-
-#define USEABLE_HARDWARE_PWM(P) (PWM_PIN(P) && !PWM_CHK(P))

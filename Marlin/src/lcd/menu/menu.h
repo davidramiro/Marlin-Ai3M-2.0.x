@@ -1,9 +1,9 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (C) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
- * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,10 @@
 #pragma once
 
 #include "../ultralcd.h"
+#include "../../libs/numtostr.h"
 #include "../../inc/MarlinConfig.h"
+
+#include "limits.h"
 
 extern int8_t encoderLine, encoderTopLine, screen_items;
 extern bool screen_changed;
@@ -43,29 +46,39 @@ bool printer_busy();
     static inline char* strfunc(const float value) { return STRFUNC((TYPE) value); } \
   };
 
-DECLARE_MENU_EDIT_TYPE(uint8_t,  percent,     ui8tostr_percent,1     );   // 100%       right-justified
+DECLARE_MENU_EDIT_TYPE(uint8_t,  percent,     ui8tostr4pct, 100.0/255);   // 100%       right-justified
 DECLARE_MENU_EDIT_TYPE(int16_t,  int3,        i16tostr3,       1     );   // 123, -12   right-justified
 DECLARE_MENU_EDIT_TYPE(int16_t,  int4,        i16tostr4sign,   1     );   // 1234, -123 right-justified
 DECLARE_MENU_EDIT_TYPE(int8_t,   int8,        i8tostr3,        1     );   // 123, -12   right-justified
 DECLARE_MENU_EDIT_TYPE(uint8_t,  uint8,       ui8tostr3,       1     );   // 123        right-justified
-DECLARE_MENU_EDIT_TYPE(uint16_t, uint16_3,    ui16tostr3,      1     );   // 123, -12   right-justified
-DECLARE_MENU_EDIT_TYPE(uint16_t, uint16_4,    ui16tostr4,      0.1   );   // 1234, -123 right-justified
+DECLARE_MENU_EDIT_TYPE(uint16_t, uint16_3,    ui16tostr3,      1     );   // 123        right-justified
+DECLARE_MENU_EDIT_TYPE(uint16_t, uint16_4,    ui16tostr4,      0.1   );   // 1234       right-justified
+DECLARE_MENU_EDIT_TYPE(uint16_t, uint16_5,    ui16tostr5,      0.01  );   // 12345      right-justified
 DECLARE_MENU_EDIT_TYPE(float,    float3,      ftostr3,         1     );   // 123        right-justified
-DECLARE_MENU_EDIT_TYPE(float,    float52,     ftostr52,      100     );   // 123.45
+DECLARE_MENU_EDIT_TYPE(float,    float52,     ftostr42_52,   100     );   // _2.34, 12.34, -2.34 or 123.45, -23.45
 DECLARE_MENU_EDIT_TYPE(float,    float43,     ftostr43sign, 1000     );   // 1.234
 DECLARE_MENU_EDIT_TYPE(float,    float5,      ftostr5rj,       0.01f );   // 12345      right-justified
-DECLARE_MENU_EDIT_TYPE(float,    float51,     ftostr51sign,   10     );   // +1234.5
+DECLARE_MENU_EDIT_TYPE(float,    float5_25,   ftostr5rj,       0.04f );   // 12345      right-justified (25 increment)
+DECLARE_MENU_EDIT_TYPE(float,    float51,     ftostr51rj,     10     );   // 1234.5     right-justified
+DECLARE_MENU_EDIT_TYPE(float,    float51sign, ftostr51sign,   10     );   // +1234.5
 DECLARE_MENU_EDIT_TYPE(float,    float52sign, ftostr52sign,  100     );   // +123.45
-DECLARE_MENU_EDIT_TYPE(float,    float62,     ftostr62rj,    100     );   // 1234.56    right-justified
 DECLARE_MENU_EDIT_TYPE(uint32_t, long5,       ftostr5rj,       0.01f );   // 12345      right-justified
+DECLARE_MENU_EDIT_TYPE(uint32_t, long5_25,    ftostr5rj,       0.04f );   // 12345      right-justified (25 increment)
 
 ////////////////////////////////////////////
 ///////// Menu Item Draw Functions /////////
 ////////////////////////////////////////////
 
-void draw_edit_screen(PGM_P const pstr, const char* const value=NULL);
+typedef void (*selectFunc_t)();
+void draw_select_screen(PGM_P const yes, PGM_P const no, const bool yesno, PGM_P const pref, const char * const string, PGM_P const suff);
+void do_select_screen(PGM_P const yes, PGM_P const no, selectFunc_t yesFunc, selectFunc_t noFunc, PGM_P const pref, const char * const string=nullptr, PGM_P const suff=nullptr);
+inline void do_select_screen_yn(selectFunc_t yesFunc, selectFunc_t noFunc, PGM_P const pref, const char * const string=nullptr, PGM_P const suff=nullptr) {
+  do_select_screen(PSTR(MSG_YES), PSTR(MSG_NO), yesFunc, noFunc, pref, string, suff);
+}
+
+void draw_edit_screen(PGM_P const pstr, const char* const value=nullptr);
 void draw_menu_item(const bool sel, const uint8_t row, PGM_P const pstr, const char pre_char, const char post_char);
-void draw_menu_item_static(const uint8_t row, PGM_P const pstr, const bool center=true, const bool invert=false, const char *valstr=NULL);
+void draw_menu_item_static(const uint8_t row, PGM_P const pstr, const bool center=true, const bool invert=false, const char *valstr=nullptr);
 void _draw_menu_item_edit(const bool sel, const uint8_t row, PGM_P const pstr, const char* const data, const bool pgm);
 FORCE_INLINE void draw_menu_item_back(const bool sel, const uint8_t row, PGM_P const pstr) { draw_menu_item(sel, row, pstr, LCD_STR_UPLEVEL[0], LCD_STR_UPLEVEL[0]); }
 FORCE_INLINE void draw_menu_item_edit(const bool sel, const uint8_t row, PGM_P const pstr, const char* const data) { _draw_menu_item_edit(sel, row, pstr, data, false); }
@@ -108,16 +121,19 @@ DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(int3);             // 123, -12   right-justif
 DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(int4);             // 1234, -123 right-justified
 DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(int8);             // 123, -12   right-justified
 DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(uint8);            // 123        right-justified
-DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(uint16_3);         // 123, -12   right-justified
-DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(uint16_4);         // 1234, -123 right-justified
+DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(uint16_3);         // 123        right-justified
+DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(uint16_4);         // 1234       right-justified
+DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(uint16_5);         // 12345      right-justified
 DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(float3);           // 123        right-justified
-DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(float52);          // 123.45
+DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(float52);          // _2.34, 12.34, -2.34 or 123.45, -23.45
 DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(float43);          // 1.234
 DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(float5);           // 12345      right-justified
-DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(float51);          // +1234.5
+DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(float5_25);        // 12345      right-justified (25 increment)
+DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(float51);          // _1234.5    right-justified
+DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(float51sign);      // +1234.5
 DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(float52sign);      // +123.45
-DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(float62);          // 1234.56    right-justified
 DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(long5);            // 12345      right-justified
+DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(long5_25);         // 12345      right-justified (25 increment)
 
 #define draw_menu_item_edit_bool(sel, row, pstr, pstr2, data, ...)           DRAW_BOOL_SETTING(sel, row, pstr, data)
 #define draw_menu_item_edit_accessor_bool(sel, row, pstr, pstr2, pget, pset) DRAW_BOOL_SETTING(sel, row, pstr, data)
@@ -128,7 +144,13 @@ DEFINE_DRAW_MENU_ITEM_SETTING_EDIT(long5);            // 12345      right-justif
 
 class MenuItem_back {
   public:
-    static inline void action() { ui.goto_previous_screen(); }
+    static inline void action() {
+      ui.goto_previous_screen(
+        #if ENABLED(TURBO_BACK_MENU_ITEM)
+          true
+        #endif
+      );
+    }
 };
 
 class MenuItem_submenu {
@@ -151,10 +173,16 @@ class MenuItem_function {
 ////////////////////////////////////////////
 
 class MenuItemBase {
+  private:
+    static PGM_P editLabel;
+    static void *editValue;
+    static int32_t minEditValue, maxEditValue;
+    static screenFunc_t callbackFunc;
+    static bool liveEdit;
   protected:
     typedef char* (*strfunc_t)(const int32_t);
     typedef void (*loadfunc_t)(void *, const int32_t);
-    static void init(PGM_P const el, void * const ev, const int32_t minv, const int32_t maxv, const uint32_t ep, const screenFunc_t cs, const screenFunc_t cb, const bool le);
+    static void init(PGM_P const el, void * const ev, const int32_t minv, const int32_t maxv, const uint16_t ep, const screenFunc_t cs, const screenFunc_t cb, const bool le);
     static void edit(strfunc_t, loadfunc_t);
 };
 
@@ -164,12 +192,14 @@ class TMenuItem : MenuItemBase {
     typedef typename NAME::type_t type_t;
     static inline float unscale(const float value)    { return value * (1.0f / NAME::scale);  }
     static inline float scale(const float value)      { return value * NAME::scale;           }
-    static void  load(void *ptr, const int32_t value) { *((type_t*)ptr) = unscale(value);     }
+    static void load(void *ptr, const int32_t value)  { *((type_t*)ptr) = unscale(value);     }
     static char* to_string(const int32_t value)       { return NAME::strfunc(unscale(value)); }
   public:
-    static void action_edit(PGM_P const pstr, type_t * const ptr, const type_t minValue, const type_t maxValue, const screenFunc_t callback=NULL, const bool live=false) {
-      const int32_t minv = scale(minValue);
-      init(pstr, ptr, minv, int32_t(scale(maxValue)) - minv, int32_t(scale(*ptr)) - minv, edit, callback, live);
+    static void action_edit(PGM_P const pstr, type_t * const ptr, const type_t minValue, const type_t maxValue, const screenFunc_t callback=nullptr, const bool live=false) {
+      // Make sure minv and maxv fit within int16_t
+      const int32_t minv = _MAX(scale(minValue), INT16_MIN),
+                    maxv = _MIN(scale(maxValue), INT16_MAX);
+      init(pstr, ptr, minv, maxv - minv, scale(*ptr) - minv, edit, callback, live);
     }
     static void edit() { MenuItemBase::edit(to_string, load); }
 };
@@ -183,18 +213,21 @@ DECLARE_MENU_EDIT_ITEM(int8);
 DECLARE_MENU_EDIT_ITEM(uint8);
 DECLARE_MENU_EDIT_ITEM(uint16_3);
 DECLARE_MENU_EDIT_ITEM(uint16_4);
+DECLARE_MENU_EDIT_ITEM(uint16_5);
 DECLARE_MENU_EDIT_ITEM(float3);
 DECLARE_MENU_EDIT_ITEM(float52);
 DECLARE_MENU_EDIT_ITEM(float43);
 DECLARE_MENU_EDIT_ITEM(float5);
+DECLARE_MENU_EDIT_ITEM(float5_25);
 DECLARE_MENU_EDIT_ITEM(float51);
+DECLARE_MENU_EDIT_ITEM(float51sign);
 DECLARE_MENU_EDIT_ITEM(float52sign);
-DECLARE_MENU_EDIT_ITEM(float62);
 DECLARE_MENU_EDIT_ITEM(long5);
+DECLARE_MENU_EDIT_ITEM(long5_25);
 
 class MenuItem_bool {
   public:
-    static void action_edit(PGM_P const pstr, bool* ptr, const screenFunc_t callbackFunc=NULL);
+    static void action_edit(PGM_P const pstr, bool* ptr, const screenFunc_t callbackFunc=nullptr);
 };
 
 ////////////////////////////////////////////
@@ -324,7 +357,7 @@ void menu_main();
 void menu_move();
 
 #if ENABLED(SDSUPPORT)
-  void menu_sdcard();
+  void menu_media();
 #endif
 
 // First Fan Speed title in "Tune" and "Control>Temperature" menus
@@ -350,8 +383,8 @@ void _lcd_draw_homing();
 #endif
 
 #if ANY(AUTO_BED_LEVELING_UBL, PID_AUTOTUNE_MENU, ADVANCED_PAUSE_FEATURE)
-  void lcd_enqueue_command(const char * const cmd);
-  void lcd_enqueue_commands_P(PGM_P const cmd);
+  void lcd_enqueue_one_now(const char * const cmd);
+  void lcd_enqueue_one_now_P(PGM_P const cmd);
 #endif
 
 #if ENABLED(LEVEL_BED_CORNERS)

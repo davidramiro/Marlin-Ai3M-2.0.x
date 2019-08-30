@@ -1,9 +1,9 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (C) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
- * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@
  */
 
 // Change EEPROM version if the structure changes
-#define EEPROM_VERSION "V64"
+#define EEPROM_VERSION "V69"
 #define EEPROM_OFFSET 100
 
 // Check the integrity of data offsets.
@@ -64,6 +64,10 @@
   #include "../feature/bedlevel/bedlevel.h"
 #endif
 
+#if ENABLED(EXTENSIBLE_UI)
+  #include "../lcd/extensible_ui/ui_api.h"
+#endif
+
 #if HAS_SERVOS
   #include "servo.h"
 #endif
@@ -86,8 +90,16 @@
 
 #include "../feature/pause.h"
 
+#if ENABLED(BACKLASH_COMPENSATION)
+  #include "../feature/backlash.h"
+#endif
+
+#if HAS_FILAMENT_SENSOR
+  #include "../feature/runout.h"
+#endif
+
 #if ENABLED(EXTRA_LIN_ADVANCE_K)
-extern float saved_extruder_advance_K[EXTRUDERS];
+  extern float saved_extruder_advance_K[EXTRUDERS];
 #endif
 
 #if EXTRUDERS > 1
@@ -95,21 +107,24 @@ extern float saved_extruder_advance_K[EXTRUDERS];
   void M217_report(const bool eeprom);
 #endif
 
+#if ENABLED(BLTOUCH)
+  #include "../feature/bltouch.h"
+#endif
+
 #if HAS_TRINAMIC
   #include "stepper_indirection.h"
   #include "../feature/tmc_util.h"
-  #define TMC_GET_PWMTHRS(A,Q) _tmc_thrs(stepper##Q.microsteps(), stepper##Q.TPWMTHRS(), planner.settings.axis_steps_per_mm[_AXIS(A)])
 #endif
 
 #pragma pack(push, 1) // No padding between variables
 
 typedef struct { uint16_t X, Y, Z, X2, Y2, Z2, Z3, E0, E1, E2, E3, E4, E5; } tmc_stepper_current_t;
 typedef struct { uint32_t X, Y, Z, X2, Y2, Z2, Z3, E0, E1, E2, E3, E4, E5; } tmc_hybrid_threshold_t;
-typedef struct {  int16_t X, Y, Z;                                         } tmc_sgt_t;
+typedef struct {  int16_t X, Y, Z, X2;                                     } tmc_sgt_t;
 typedef struct {     bool X, Y, Z, X2, Y2, Z2, Z3, E0, E1, E2, E3, E4, E5; } tmc_stealth_enabled_t;
 
 // Limit an index to an array size
-#define ALIM(I,ARR) MIN(I, COUNT(ARR) - 1)
+#define ALIM(I,ARR) _MIN(I, COUNT(ARR) - 1)
 
 /**
  * Current EEPROM Layout
@@ -136,6 +151,12 @@ typedef struct SettingsDataStruct {
   #if HAS_HOTEND_OFFSET
     float hotend_offset[XYZ][HOTENDS - 1];              // M218 XYZ
   #endif
+
+  //
+  // FILAMENT_RUNOUT_SENSOR
+  //
+  bool runout_sensor_enabled;                           // M412 S
+  float runout_distance_mm;                             // M412 D
 
   //
   // ENABLE_LEVELING_FADE_HEIGHT
@@ -188,6 +209,11 @@ typedef struct SettingsDataStruct {
   uint16_t servo_angles[EEPROM_NUM_SERVOS][2];          // M281 P L U
 
   //
+  // BLTOUCH
+  //
+  bool bltouch_last_written_mode;
+
+  //
   // DELTA / [XYZ]_DUAL_ENDSTOPS
   //
   #if ENABLED(DELTA)
@@ -224,6 +250,13 @@ typedef struct SettingsDataStruct {
   PID_t bedPID;                                         // M304 PID / M303 E-1 U
 
   //
+  // User-defined Thermistors
+  //
+  #if HAS_USER_THERMISTORS
+    user_thermistor_t user_thermistor[USER_THERMISTORS]; // M305 P0 R4700 T100000 B3950
+  #endif
+
+  //
   // HAS_LCD_CONTRAST
   //
   int16_t lcd_contrast;                                 // M250 C
@@ -250,7 +283,7 @@ typedef struct SettingsDataStruct {
   //
   tmc_stepper_current_t tmc_stepper_current;            // M906 X Y Z X2 Y2 Z2 Z3 E0 E1 E2 E3 E4 E5
   tmc_hybrid_threshold_t tmc_hybrid_threshold;          // M913 X Y Z X2 Y2 Z2 Z3 E0 E1 E2 E3 E4 E5
-  tmc_sgt_t tmc_sgt;                                    // M914 X Y Z
+  tmc_sgt_t tmc_sgt;                                    // M914 X Y Z X2
   tmc_stealth_enabled_t tmc_stealth_enabled;            // M569 X Y Z X2 Y2 Z2 Z3 E0 E1 E2 E3 E4 E5
 
   //
@@ -285,7 +318,24 @@ typedef struct SettingsDataStruct {
     toolchange_settings_t toolchange_settings;          // M217 S P R
   #endif
 
+  //
+  // BACKLASH_COMPENSATION
+  //
+  float backlash_distance_mm[XYZ];                      // M425 X Y Z
+  uint8_t backlash_correction;                          // M425 F
+  float backlash_smoothing_mm;                          // M425 S
+
+  //
+  // EXTENSIBLE_UI
+  //
+  #if ENABLED(EXTENSIBLE_UI)
+    // This is a significant hardware change; don't reserve space when not present
+    uint8_t extui_data[ExtUI::eeprom_data_size];
+  #endif
+
 } SettingsData;
+
+//static_assert(sizeof(SettingsData) <= E2END + 1, "EEPROM too small to contain SettingsData!");
 
 MarlinSettings settings;
 
@@ -357,6 +407,15 @@ void MarlinSettings::postprocess() {
     report_current_position();
 }
 
+#if BOTH(PRINTCOUNTER, EEPROM_SETTINGS)
+  #include "printcounter.h"
+  static_assert(
+    !WITHIN(STATS_EEPROM_ADDRESS, EEPROM_OFFSET, EEPROM_OFFSET + sizeof(SettingsData)) &&
+    !WITHIN(STATS_EEPROM_ADDRESS + sizeof(printStatistics), EEPROM_OFFSET, EEPROM_OFFSET + sizeof(SettingsData)),
+    "STATS_EEPROM_ADDRESS collides with EEPROM settings storage."
+  );
+#endif
+
 #if ENABLED(SD_FIRMWARE_UPDATE)
 
   #if ENABLED(EEPROM_SETTINGS)
@@ -388,35 +447,19 @@ void MarlinSettings::postprocess() {
 
 #if ENABLED(EEPROM_SETTINGS)
 
-  #define WORD_PADDED_EEPROM ENABLED(__STM32F1__, FLASH_EEPROM_EMULATION)
-
-  #if WORD_PADDED_EEPROM && ENABLED(DEBUG_EEPROM_READWRITE)
-    #define UPDATE_TEST_INDEX(VAR) (text_index += sizeof(VAR))
-  #else
-    #define UPDATE_TEST_INDEX(VAR) NOOP
-  #endif
-  #if WORD_PADDED_EEPROM
-    #define EEPROM_SKIP(VAR) do{ eeprom_index += sizeof(VAR) + (sizeof(VAR) & 1); UPDATE_TEST_INDEX(sizeof(VAR)); }while(0)
-  #else
-    #define EEPROM_SKIP(VAR) (eeprom_index += sizeof(VAR))
-  #endif
-
-  #define EEPROM_START()          int eeprom_index = EEPROM_OFFSET; persistentStore.access_start()
+  #define EEPROM_START()          if (!persistentStore.access_start()) { SERIAL_ECHO_MSG("No EEPROM."); return false; } \
+                                  int eeprom_index = EEPROM_OFFSET
   #define EEPROM_FINISH()         persistentStore.access_finish()
-  #define EEPROM_WRITE(VAR)       do{ persistentStore.write_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc);              UPDATE_TEST_INDEX(VAR); }while(0)
-  #define EEPROM_READ(VAR)        do{ persistentStore.read_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc, !validating);  UPDATE_TEST_INDEX(VAR); }while(0)
-  #define EEPROM_READ_ALWAYS(VAR) do{ persistentStore.read_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc);               UPDATE_TEST_INDEX(VAR); }while(0)
+  #define EEPROM_SKIP(VAR)        (eeprom_index += sizeof(VAR))
+  #define EEPROM_WRITE(VAR)       do{ persistentStore.write_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc);              }while(0)
+  #define EEPROM_READ(VAR)        do{ persistentStore.read_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc, !validating);  }while(0)
+  #define EEPROM_READ_ALWAYS(VAR) do{ persistentStore.read_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc);               }while(0)
   #define EEPROM_ASSERT(TST,ERR)  do{ if (!(TST)) { SERIAL_ERROR_MSG(ERR); eeprom_error = true; } }while(0)
 
   #if ENABLED(DEBUG_EEPROM_READWRITE)
-    #if WORD_PADDED_EEPROM
-      int test_index;
-    #else
-      #define test_index eeprom_index
-    #endif
     #define _FIELD_TEST(FIELD) \
       EEPROM_ASSERT( \
-        eeprom_error || test_index == offsetof(SettingsData, FIELD) + EEPROM_OFFSET, \
+        eeprom_error || eeprom_index == offsetof(SettingsData, FIELD) + EEPROM_OFFSET, \
         "Field " STRINGIFY(FIELD) " mismatch." \
       )
   #else
@@ -506,6 +549,25 @@ void MarlinSettings::postprocess() {
         for (uint8_t e = 1; e < HOTENDS; e++)
           LOOP_XYZ(i) EEPROM_WRITE(hotend_offset[i][e]);
       #endif
+    }
+
+    //
+    // Filament Runout Sensor
+    //
+    {
+      #if HAS_FILAMENT_SENSOR
+        const bool &runout_sensor_enabled = runout.enabled;
+      #else
+        const bool runout_sensor_enabled = true;
+      #endif
+      #if HAS_FILAMENT_SENSOR && defined(FILAMENT_RUNOUT_DISTANCE_MM)
+        const float &runout_distance_mm = runout.runout_distance();
+      #else
+        const float runout_distance_mm = 0;
+      #endif
+      _FIELD_TEST(runout_sensor_enabled);
+      EEPROM_WRITE(runout_sensor_enabled);
+      EEPROM_WRITE(runout_distance_mm);
     }
 
     //
@@ -630,6 +692,19 @@ void MarlinSettings::postprocess() {
     }
 
     //
+    // BLTOUCH
+    //
+    {
+      _FIELD_TEST(bltouch_last_written_mode);
+      #if ENABLED(BLTOUCH)
+        const bool &bltouch_last_written_mode = bltouch.last_written_mode;
+      #else
+        constexpr bool bltouch_last_written_mode = false;
+      #endif
+      EEPROM_WRITE(bltouch_last_written_mode);
+    }
+
+    //
     // DELTA Geometry or Dual Endstops offsets
     //
     {
@@ -735,6 +810,16 @@ void MarlinSettings::postprocess() {
     }
 
     //
+    // User-defined Thermistors
+    //
+    #if HAS_USER_THERMISTORS
+    {
+      _FIELD_TEST(user_thermistor);
+      EEPROM_WRITE(thermalManager.user_thermistor);
+    }
+    #endif
+
+    //
     // LCD Contrast
     //
     {
@@ -743,8 +828,10 @@ void MarlinSettings::postprocess() {
       const int16_t lcd_contrast =
         #if HAS_LCD_CONTRAST
           ui.contrast
+        #elif defined(DEFAULT_LCD_CONTRAST)
+          DEFAULT_LCD_CONTRAST
         #else
-          32
+          127
         #endif
       ;
       EEPROM_WRITE(lcd_contrast);
@@ -880,49 +967,49 @@ void MarlinSettings::postprocess() {
       #if ENABLED(HYBRID_THRESHOLD)
        tmc_hybrid_threshold_t tmc_hybrid_threshold = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         #if AXIS_HAS_STEALTHCHOP(X)
-          tmc_hybrid_threshold.X = TMC_GET_PWMTHRS(X, X);
+          tmc_hybrid_threshold.X = stepperX.get_pwm_thrs();
         #endif
         #if AXIS_HAS_STEALTHCHOP(Y)
-          tmc_hybrid_threshold.Y = TMC_GET_PWMTHRS(Y, Y);
+          tmc_hybrid_threshold.Y = stepperY.get_pwm_thrs();
         #endif
         #if AXIS_HAS_STEALTHCHOP(Z)
-          tmc_hybrid_threshold.Z = TMC_GET_PWMTHRS(Z, Z);
+          tmc_hybrid_threshold.Z = stepperZ.get_pwm_thrs();
         #endif
         #if AXIS_HAS_STEALTHCHOP(X2)
-          tmc_hybrid_threshold.X2 = TMC_GET_PWMTHRS(X, X2);
+          tmc_hybrid_threshold.X2 = stepperX2.get_pwm_thrs();
         #endif
         #if AXIS_HAS_STEALTHCHOP(Y2)
-          tmc_hybrid_threshold.Y2 = TMC_GET_PWMTHRS(Y, Y2);
+          tmc_hybrid_threshold.Y2 = stepperY2.get_pwm_thrs();
         #endif
         #if AXIS_HAS_STEALTHCHOP(Z2)
-          tmc_hybrid_threshold.Z2 = TMC_GET_PWMTHRS(Z, Z2);
+          tmc_hybrid_threshold.Z2 = stepperZ2.get_pwm_thrs();
         #endif
         #if AXIS_HAS_STEALTHCHOP(Z3)
-          tmc_hybrid_threshold.Z3 = TMC_GET_PWMTHRS(Z, Z3);
+          tmc_hybrid_threshold.Z3 = stepperZ3.get_pwm_thrs();
         #endif
         #if MAX_EXTRUDERS
           #if AXIS_HAS_STEALTHCHOP(E0)
-            tmc_hybrid_threshold.E0 = TMC_GET_PWMTHRS(E, E0);
+            tmc_hybrid_threshold.E0 = stepperE0.get_pwm_thrs();
           #endif
           #if MAX_EXTRUDERS > 1
             #if AXIS_HAS_STEALTHCHOP(E1)
-              tmc_hybrid_threshold.E1 = TMC_GET_PWMTHRS(E, E1);
+              tmc_hybrid_threshold.E1 = stepperE1.get_pwm_thrs();
             #endif
             #if MAX_EXTRUDERS > 2
               #if AXIS_HAS_STEALTHCHOP(E2)
-                tmc_hybrid_threshold.E2 = TMC_GET_PWMTHRS(E, E2);
+                tmc_hybrid_threshold.E2 = stepperE2.get_pwm_thrs();
               #endif
               #if MAX_EXTRUDERS > 3
                 #if AXIS_HAS_STEALTHCHOP(E3)
-                  tmc_hybrid_threshold.E3 = TMC_GET_PWMTHRS(E, E3);
+                  tmc_hybrid_threshold.E3 = stepperE3.get_pwm_thrs();
                 #endif
                 #if MAX_EXTRUDERS > 4
                   #if AXIS_HAS_STEALTHCHOP(E4)
-                    tmc_hybrid_threshold.E4 = TMC_GET_PWMTHRS(E, E4);
+                    tmc_hybrid_threshold.E4 = stepperE4.get_pwm_thrs();
                   #endif
                   #if MAX_EXTRUDERS > 5
                     #if AXIS_HAS_STEALTHCHOP(E5)
-                      tmc_hybrid_threshold.E5 = TMC_GET_PWMTHRS(E, E5);
+                      tmc_hybrid_threshold.E5 = stepperE5.get_pwm_thrs();
                     #endif
                   #endif // MAX_EXTRUDERS > 5
                 #endif // MAX_EXTRUDERS > 4
@@ -945,16 +1032,19 @@ void MarlinSettings::postprocess() {
     // TMC StallGuard threshold
     //
     {
-      tmc_sgt_t tmc_sgt = { 0, 0, 0 };
+      tmc_sgt_t tmc_sgt = { 0 };
       #if USE_SENSORLESS
         #if X_SENSORLESS
-          tmc_sgt.X = stepperX.sgt();
+          tmc_sgt.X = stepperX.homing_threshold();
+        #endif
+        #if X2_SENSORLESS
+          tmc_sgt.X2 = stepperX2.homing_threshold();
         #endif
         #if Y_SENSORLESS
-          tmc_sgt.Y = stepperY.sgt();
+          tmc_sgt.Y = stepperY.homing_threshold();
         #endif
         #if Z_SENSORLESS
-          tmc_sgt.Z = stepperZ.sgt();
+          tmc_sgt.Z = stepperZ.homing_threshold();
         #endif
       #endif
       EEPROM_WRITE(tmc_sgt);
@@ -1092,6 +1182,45 @@ void MarlinSettings::postprocess() {
     #endif
 
     //
+    // Backlash Compensation
+    //
+    {
+      #ifdef BACKLASH_DISTANCE_MM
+        const float (&backlash_distance_mm)[XYZ] = backlash.distance_mm;
+      #else
+        const float backlash_distance_mm[XYZ] = { 0 };
+      #endif
+      #if ENABLED(BACKLASH_COMPENSATION)
+        const uint8_t &backlash_correction = backlash.correction;
+      #else
+        const uint8_t backlash_correction = 0;
+      #endif
+      #ifdef BACKLASH_SMOOTHING_MM
+        const float &backlash_smoothing_mm = backlash.smoothing_mm;
+      #else
+        const float backlash_smoothing_mm = 3;
+      #endif
+      _FIELD_TEST(backlash_distance_mm);
+      EEPROM_WRITE(backlash_distance_mm[X_AXIS]);
+      EEPROM_WRITE(backlash_distance_mm[Y_AXIS]);
+      EEPROM_WRITE(backlash_distance_mm[Z_AXIS]);
+      EEPROM_WRITE(backlash_correction);
+      EEPROM_WRITE(backlash_smoothing_mm);
+    }
+
+    //
+    // Extensible UI User Data
+    //
+    #if ENABLED(EXTENSIBLE_UI)
+      {
+        char extui_data[ExtUI::eeprom_data_size] = { 0 };
+        ExtUI::onStoreSettings(extui_data);
+        _FIELD_TEST(extui_data);
+        EEPROM_WRITE(extui_data);
+      }
+    #endif
+
+    //
     // Validate CRC and Data Size
     //
     if (!eeprom_error) {
@@ -1118,6 +1247,10 @@ void MarlinSettings::postprocess() {
     #if ENABLED(UBL_SAVE_ACTIVE_ON_M500)
       if (ubl.storage_slot >= 0)
         store_mesh(ubl.storage_slot);
+    #endif
+
+    #if ENABLED(EXTENSIBLE_UI)
+      ExtUI::onConfigurationStoreWritten(!eeprom_error);
     #endif
 
     return !eeprom_error;
@@ -1226,6 +1359,25 @@ void MarlinSettings::postprocess() {
           // Skip hotend 0 which must be 0
           for (uint8_t e = 1; e < HOTENDS; e++)
             LOOP_XYZ(i) EEPROM_READ(hotend_offset[i][e]);
+        #endif
+      }
+
+      //
+      // Filament Runout Sensor
+      //
+      {
+        #if HAS_FILAMENT_SENSOR
+          bool &runout_sensor_enabled = runout.enabled;
+        #else
+          bool runout_sensor_enabled;
+        #endif
+        _FIELD_TEST(runout_sensor_enabled);
+        EEPROM_READ(runout_sensor_enabled);
+
+        float runout_distance_mm;
+        EEPROM_READ(runout_distance_mm);
+        #if HAS_FILAMENT_SENSOR && defined(FILAMENT_RUNOUT_DISTANCE_MM)
+          if (!validating) runout.set_runout_distance(runout_distance_mm);
         #endif
       }
 
@@ -1346,6 +1498,19 @@ void MarlinSettings::postprocess() {
       }
 
       //
+      // BLTOUCH
+      //
+      {
+        _FIELD_TEST(bltouch_last_written_mode);
+        #if ENABLED(BLTOUCH)
+          bool &bltouch_last_written_mode = bltouch.last_written_mode;
+        #else
+          bool bltouch_last_written_mode;
+        #endif
+        EEPROM_READ(bltouch_last_written_mode);
+      }
+
+      //
       // DELTA Geometry or Dual Endstops offsets
       //
       {
@@ -1453,6 +1618,16 @@ void MarlinSettings::postprocess() {
             memcpy(&thermalManager.temp_bed.pid, &pid, sizeof(pid));
         #endif
       }
+
+      //
+      // User-defined Thermistors
+      //
+      #if HAS_USER_THERMISTORS
+      {
+        _FIELD_TEST(user_thermistor);
+        EEPROM_READ(thermalManager.user_thermistor);
+      }
+      #endif
 
       //
       // LCD Contrast
@@ -1588,46 +1763,45 @@ void MarlinSettings::postprocess() {
         EEPROM_READ(tmc_hybrid_threshold);
 
         #if ENABLED(HYBRID_THRESHOLD)
-          #define TMC_SET_PWMTHRS(A,Q) tmc_set_pwmthrs(stepper##Q, tmc_hybrid_threshold.Q, planner.settings.axis_steps_per_mm[_AXIS(A)])
           if (!validating) {
             #if AXIS_HAS_STEALTHCHOP(X)
-              TMC_SET_PWMTHRS(X, X);
+              stepperX.set_pwm_thrs(tmc_hybrid_threshold.X);
             #endif
             #if AXIS_HAS_STEALTHCHOP(Y)
-              TMC_SET_PWMTHRS(Y, Y);
+              stepperY.set_pwm_thrs(tmc_hybrid_threshold.Y);
             #endif
             #if AXIS_HAS_STEALTHCHOP(Z)
-              TMC_SET_PWMTHRS(Z, Z);
+              stepperZ.set_pwm_thrs(tmc_hybrid_threshold.Z);
             #endif
             #if AXIS_HAS_STEALTHCHOP(X2)
-              TMC_SET_PWMTHRS(X, X2);
+              stepperX2.set_pwm_thrs(tmc_hybrid_threshold.X2);
             #endif
             #if AXIS_HAS_STEALTHCHOP(Y2)
-              TMC_SET_PWMTHRS(Y, Y2);
+              stepperY2.set_pwm_thrs(tmc_hybrid_threshold.Y2);
             #endif
             #if AXIS_HAS_STEALTHCHOP(Z2)
-              TMC_SET_PWMTHRS(Z, Z2);
+              stepperZ2.set_pwm_thrs(tmc_hybrid_threshold.Z2);
             #endif
             #if AXIS_HAS_STEALTHCHOP(Z3)
-              TMC_SET_PWMTHRS(Z, Z3);
+              stepperZ3.set_pwm_thrs(tmc_hybrid_threshold.Z3);
             #endif
             #if AXIS_HAS_STEALTHCHOP(E0)
-              TMC_SET_PWMTHRS(E, E0);
+              stepperE0.set_pwm_thrs(tmc_hybrid_threshold.E0);
             #endif
             #if AXIS_HAS_STEALTHCHOP(E1)
-              TMC_SET_PWMTHRS(E, E1);
+              stepperE1.set_pwm_thrs(tmc_hybrid_threshold.E1);
             #endif
             #if AXIS_HAS_STEALTHCHOP(E2)
-              TMC_SET_PWMTHRS(E, E2);
+              stepperE2.set_pwm_thrs(tmc_hybrid_threshold.E2);
             #endif
             #if AXIS_HAS_STEALTHCHOP(E3)
-              TMC_SET_PWMTHRS(E, E3);
+              stepperE3.set_pwm_thrs(tmc_hybrid_threshold.E3);
             #endif
             #if AXIS_HAS_STEALTHCHOP(E4)
-              TMC_SET_PWMTHRS(E, E4);
+              stepperE4.set_pwm_thrs(tmc_hybrid_threshold.E4);
             #endif
             #if AXIS_HAS_STEALTHCHOP(E5)
-              TMC_SET_PWMTHRS(E, E5);
+              stepperE5.set_pwm_thrs(tmc_hybrid_threshold.E5);
             #endif
           }
         #endif
@@ -1647,29 +1821,32 @@ void MarlinSettings::postprocess() {
           if (!validating) {
             #ifdef X_STALL_SENSITIVITY
               #if AXIS_HAS_STALLGUARD(X)
-                stepperX.sgt(tmc_sgt.X);
+                stepperX.homing_threshold(tmc_sgt.X);
               #endif
-              #if AXIS_HAS_STALLGUARD(X2)
-                stepperX2.sgt(tmc_sgt.X);
+              #if AXIS_HAS_STALLGUARD(X2) && !X2_SENSORLESS
+                stepperX2.homing_threshold(tmc_sgt.X);
               #endif
+            #endif
+            #if X2_SENSORLESS
+              stepperX2.homing_threshold(tmc_sgt.X2);
             #endif
             #ifdef Y_STALL_SENSITIVITY
               #if AXIS_HAS_STALLGUARD(Y)
-                stepperY.sgt(tmc_sgt.Y);
+                stepperY.homing_threshold(tmc_sgt.Y);
               #endif
               #if AXIS_HAS_STALLGUARD(Y2)
-                stepperY2.sgt(tmc_sgt.Y);
+                stepperY2.homing_threshold(tmc_sgt.Y);
               #endif
             #endif
             #ifdef Z_STALL_SENSITIVITY
               #if AXIS_HAS_STALLGUARD(Z)
-                stepperZ.sgt(tmc_sgt.Z);
+                stepperZ.homing_threshold(tmc_sgt.Z);
               #endif
               #if AXIS_HAS_STALLGUARD(Z2)
-                stepperZ2.sgt(tmc_sgt.Z);
+                stepperZ2.homing_threshold(tmc_sgt.Z);
               #endif
               #if AXIS_HAS_STALLGUARD(Z3)
-                stepperZ3.sgt(tmc_sgt.Z);
+                stepperZ3.homing_threshold(tmc_sgt.Z);
               #endif
             #endif
           }
@@ -1807,6 +1984,46 @@ void MarlinSettings::postprocess() {
         EEPROM_READ(toolchange_settings);
       #endif
 
+      //
+      // Backlash Compensation
+      //
+      {
+        #ifdef BACKLASH_DISTANCE_MM
+          float (&backlash_distance_mm)[XYZ] = backlash.distance_mm;
+        #else
+          float backlash_distance_mm[XYZ];
+        #endif
+        #if ENABLED(BACKLASH_COMPENSATION)
+          uint8_t &backlash_correction = backlash.correction;
+        #else
+          uint8_t backlash_correction;
+        #endif
+        #ifdef BACKLASH_SMOOTHING_MM
+          float &backlash_smoothing_mm = backlash.smoothing_mm;
+        #else
+          float backlash_smoothing_mm;
+        #endif
+        _FIELD_TEST(backlash_distance_mm);
+        EEPROM_READ(backlash_distance_mm[X_AXIS]);
+        EEPROM_READ(backlash_distance_mm[Y_AXIS]);
+        EEPROM_READ(backlash_distance_mm[Z_AXIS]);
+        EEPROM_READ(backlash_correction);
+        EEPROM_READ(backlash_smoothing_mm);
+      }
+
+      //
+      // Extensible UI User Data
+      //
+      #if ENABLED(EXTENSIBLE_UI)
+        // This is a significant hardware change; don't reserve EEPROM space when not present
+        {
+          const char extui_data[ExtUI::eeprom_data_size] = { 0 };
+          _FIELD_TEST(extui_data);
+          EEPROM_READ(extui_data);
+          if (!validating) ExtUI::onLoadSettings(extui_data);
+        }
+      #endif
+
       eeprom_error = size_error(eeprom_index - (EEPROM_OFFSET));
       if (eeprom_error) {
         DEBUG_ECHO_START();
@@ -1874,9 +2091,19 @@ void MarlinSettings::postprocess() {
   }
 
   bool MarlinSettings::load() {
-    if (validate()) return _load();
+    if (validate()) {
+      const bool success = _load();
+      #if ENABLED(EXTENSIBLE_UI)
+        ExtUI::onConfigurationStoreRead(success);
+      #endif
+      return success;
+    }
     reset();
-    return true;
+    #if ENABLED(EEPROM_AUTO_INIT)
+      (void)save();
+      SERIAL_ECHO_MSG("EEPROM Initialized");
+    #endif
+    return false;
   }
 
   #if ENABLED(AUTO_BED_LEVELING_UBL)
@@ -1937,7 +2164,7 @@ void MarlinSettings::postprocess() {
       #endif
     }
 
-    void MarlinSettings::load_mesh(const int8_t slot, void * const into/*=NULL*/) {
+    void MarlinSettings::load_mesh(const int8_t slot, void * const into/*=nullptr*/) {
 
       #if ENABLED(AUTO_BED_LEVELING_UBL)
 
@@ -2014,7 +2241,7 @@ void MarlinSettings::reset() {
     planner.max_jerk[X_AXIS] = DEFAULT_XJERK;
     planner.max_jerk[Y_AXIS] = DEFAULT_YJERK;
     planner.max_jerk[Z_AXIS] = DEFAULT_ZJERK;
-    #if DISABLED(JUNCTION_DEVIATION) || DISABLED(LIN_ADVANCE)
+    #if !BOTH(JUNCTION_DEVIATION, LIN_ADVANCE)
       planner.max_jerk[E_AXIS] = DEFAULT_EJERK;
     #endif
   #endif
@@ -2033,9 +2260,26 @@ void MarlinSettings::reset() {
     reset_hotend_offsets();
   #endif
 
+  //
+  // Filament Runout Sensor
+  //
+
+  #if HAS_FILAMENT_SENSOR
+    runout.enabled = true;
+    runout.reset();
+    #ifdef FILAMENT_RUNOUT_DISTANCE_MM
+      runout.set_runout_distance(FILAMENT_RUNOUT_DISTANCE_MM);
+    #endif
+  #endif
+
+  //
+  // Tool-change Settings
+  //
+
   #if EXTRUDERS > 1
     #if ENABLED(TOOLCHANGE_FILAMENT_SWAP)
       toolchange_settings.swap_length = TOOLCHANGE_FIL_SWAP_LENGTH;
+      toolchange_settings.extra_prime = TOOLCHANGE_FIL_EXTRA_PRIME;
       toolchange_settings.prime_speed = TOOLCHANGE_FIL_SWAP_PRIME_SPEED;
       toolchange_settings.retract_speed = TOOLCHANGE_FIL_SWAP_RETRACT_SPEED;
     #endif
@@ -2044,6 +2288,27 @@ void MarlinSettings::reset() {
     #endif
     toolchange_settings.z_raise = TOOLCHANGE_ZRAISE;
   #endif
+
+  #if ENABLED(BACKLASH_GCODE)
+    backlash.correction = (BACKLASH_CORRECTION) * 255;
+    #ifdef BACKLASH_DISTANCE_MM
+      constexpr float tmp[XYZ] = BACKLASH_DISTANCE_MM;
+      backlash.distance_mm[X_AXIS] = tmp[X_AXIS];
+      backlash.distance_mm[Y_AXIS] = tmp[Y_AXIS];
+      backlash.distance_mm[Z_AXIS] = tmp[Z_AXIS];
+    #endif
+    #ifdef BACKLASH_SMOOTHING_MM
+      backlash.smoothing_mm = BACKLASH_SMOOTHING_MM;
+    #endif
+  #endif
+
+  #if ENABLED(EXTENSIBLE_UI)
+    ExtUI::onFactoryReset();
+  #endif
+
+  //
+  // Magnetic Parking Extruder
+  //
 
   #if ENABLED(MAGNETIC_PARKING_EXTRUDER)
     mpe_settings_init();
@@ -2072,6 +2337,13 @@ void MarlinSettings::reset() {
   #if ENABLED(EDITABLE_SERVO_ANGLES)
     COPY(servo_angles, base_servo_angles);
   #endif
+
+  //
+  // BLTOUCH
+  //
+  //#if ENABLED(BLTOUCH)
+  //  bltouch.last_written_mode;
+  //#endif
 
   //
   // Endstop Adjustments
@@ -2178,6 +2450,14 @@ void MarlinSettings::reset() {
     thermalManager.temp_bed.pid.Kp = DEFAULT_bedKp;
     thermalManager.temp_bed.pid.Ki = scalePID_i(DEFAULT_bedKi);
     thermalManager.temp_bed.pid.Kd = scalePID_d(DEFAULT_bedKd);
+  #endif
+
+  //
+  // User-Defined Thermistors
+  //
+
+  #if HAS_USER_THERMISTORS
+    thermalManager.reset_user_thermistors();
   #endif
 
   //
@@ -2290,6 +2570,10 @@ void MarlinSettings::reset() {
 
   DEBUG_ECHO_START();
   DEBUG_ECHOLNPGM("Hardcoded Default Settings Loaded");
+
+  #if ENABLED(EXTENSIBLE_UI)
+    ExtUI::onFactoryReset();
+  #endif
 }
 
 #if DISABLED(DISABLE_M503)
@@ -2301,7 +2585,7 @@ void MarlinSettings::reset() {
   #if HAS_TRINAMIC
     inline void say_M906(const bool forReplay) { CONFIG_ECHO_START(); SERIAL_ECHOPGM("  M906"); }
     #if HAS_STEALTHCHOP
-      void say_M569(const char * const etc=NULL) {
+      void say_M569(const char * const etc=nullptr) {
         SERIAL_ECHOPGM("  M569 S1");
         if (etc) {
           SERIAL_CHAR(' ');
@@ -2473,7 +2757,7 @@ void MarlinSettings::reset() {
       #endif
       #if HAS_CLASSIC_JERK
         SERIAL_ECHOPGM(" X<max_x_jerk> Y<max_y_jerk> Z<max_z_jerk>");
-        #if DISABLED(JUNCTION_DEVIATION) || DISABLED(LIN_ADVANCE)
+        #if !BOTH(JUNCTION_DEVIATION, LIN_ADVANCE)
           SERIAL_ECHOPGM(" E<max_e_jerk>");
         #endif
       #endif
@@ -2491,7 +2775,7 @@ void MarlinSettings::reset() {
         , " X", LINEAR_UNIT(planner.max_jerk[X_AXIS])
         , " Y", LINEAR_UNIT(planner.max_jerk[Y_AXIS])
         , " Z", LINEAR_UNIT(planner.max_jerk[Z_AXIS])
-        #if DISABLED(JUNCTION_DEVIATION) || DISABLED(LIN_ADVANCE)
+        #if !BOTH(JUNCTION_DEVIATION, LIN_ADVANCE)
           , " E", LINEAR_UNIT(planner.max_jerk[E_AXIS])
         #endif
       #endif
@@ -2735,6 +3019,12 @@ void MarlinSettings::reset() {
 
     #endif // PIDTEMP || PIDTEMPBED
 
+    #if HAS_USER_THERMISTORS
+      CONFIG_ECHO_HEADING("User thermistors:");
+      for (uint8_t i = 0; i < USER_THERMISTORS; i++)
+        thermalManager.log_user_thermistor(i, true);
+    #endif
+
     #if HAS_LCD_CONTRAST
       CONFIG_ECHO_HEADING("LCD Contrast:");
       CONFIG_ECHO_START();
@@ -2883,13 +3173,13 @@ void MarlinSettings::reset() {
           say_M913();
         #endif
         #if AXIS_HAS_STEALTHCHOP(X)
-          SERIAL_ECHOPAIR(" X", TMC_GET_PWMTHRS(X, X));
+          SERIAL_ECHOPAIR(" X", stepperX.get_pwm_thrs());
         #endif
         #if AXIS_HAS_STEALTHCHOP(Y)
-          SERIAL_ECHOPAIR(" Y", TMC_GET_PWMTHRS(Y, Y));
+          SERIAL_ECHOPAIR(" Y", stepperY.get_pwm_thrs());
         #endif
         #if AXIS_HAS_STEALTHCHOP(Z)
-          SERIAL_ECHOPAIR(" Z", TMC_GET_PWMTHRS(Z, Z));
+          SERIAL_ECHOPAIR(" Z", stepperZ.get_pwm_thrs());
         #endif
         #if AXIS_HAS_STEALTHCHOP(X) || AXIS_HAS_STEALTHCHOP(Y) || AXIS_HAS_STEALTHCHOP(Z)
           SERIAL_EOL();
@@ -2900,13 +3190,13 @@ void MarlinSettings::reset() {
           SERIAL_ECHOPGM(" I1");
         #endif
         #if AXIS_HAS_STEALTHCHOP(X2)
-          SERIAL_ECHOPAIR(" X", TMC_GET_PWMTHRS(X, X2));
+          SERIAL_ECHOPAIR(" X", stepperX2.get_pwm_thrs());
         #endif
         #if AXIS_HAS_STEALTHCHOP(Y2)
-          SERIAL_ECHOPAIR(" Y", TMC_GET_PWMTHRS(Y, Y2));
+          SERIAL_ECHOPAIR(" Y", stepperY2.get_pwm_thrs());
         #endif
         #if AXIS_HAS_STEALTHCHOP(Z2)
-          SERIAL_ECHOPAIR(" Z", TMC_GET_PWMTHRS(Z, Z2));
+          SERIAL_ECHOPAIR(" Z", stepperZ2.get_pwm_thrs());
         #endif
         #if AXIS_HAS_STEALTHCHOP(X2) || AXIS_HAS_STEALTHCHOP(Y2) || AXIS_HAS_STEALTHCHOP(Z2)
           SERIAL_EOL();
@@ -2914,32 +3204,32 @@ void MarlinSettings::reset() {
 
         #if AXIS_HAS_STEALTHCHOP(Z3)
           say_M913();
-          SERIAL_ECHOLNPAIR(" I2 Z", TMC_GET_PWMTHRS(Z, Z3));
+          SERIAL_ECHOLNPAIR(" I2 Z", stepperZ3.get_pwm_thrs());
         #endif
 
         #if AXIS_HAS_STEALTHCHOP(E0)
           say_M913();
-          SERIAL_ECHOLNPAIR(" T0 E", TMC_GET_PWMTHRS(E, E0));
+          SERIAL_ECHOLNPAIR(" T0 E", stepperE0.get_pwm_thrs());
         #endif
         #if AXIS_HAS_STEALTHCHOP(E1)
           say_M913();
-          SERIAL_ECHOLNPAIR(" T1 E", TMC_GET_PWMTHRS(E, E1));
+          SERIAL_ECHOLNPAIR(" T1 E", stepperE1.get_pwm_thrs());
         #endif
         #if AXIS_HAS_STEALTHCHOP(E2)
           say_M913();
-          SERIAL_ECHOLNPAIR(" T2 E", TMC_GET_PWMTHRS(E, E2));
+          SERIAL_ECHOLNPAIR(" T2 E", stepperE2.get_pwm_thrs());
         #endif
         #if AXIS_HAS_STEALTHCHOP(E3)
           say_M913();
-          SERIAL_ECHOLNPAIR(" T3 E", TMC_GET_PWMTHRS(E, E3));
+          SERIAL_ECHOLNPAIR(" T3 E", stepperE3.get_pwm_thrs());
         #endif
         #if AXIS_HAS_STEALTHCHOP(E4)
           say_M913();
-          SERIAL_ECHOLNPAIR(" T4 E", TMC_GET_PWMTHRS(E, E4));
+          SERIAL_ECHOLNPAIR(" T4 E", stepperE4.get_pwm_thrs());
         #endif
         #if AXIS_HAS_STEALTHCHOP(E5)
           say_M913();
-          SERIAL_ECHOLNPAIR(" T5 E", TMC_GET_PWMTHRS(E, E5));
+          SERIAL_ECHOLNPAIR(" T5 E", stepperE5.get_pwm_thrs());
         #endif
         SERIAL_EOL();
       #endif // HYBRID_THRESHOLD
@@ -2948,18 +3238,18 @@ void MarlinSettings::reset() {
        * TMC Sensorless homing thresholds
        */
       #if USE_SENSORLESS
-        CONFIG_ECHO_HEADING("TMC2130 StallGuard threshold:");
+        CONFIG_ECHO_HEADING("StallGuard threshold:");
         CONFIG_ECHO_START();
         #if X_SENSORLESS || Y_SENSORLESS || Z_SENSORLESS
           say_M914();
           #if X_SENSORLESS
-            SERIAL_ECHOPAIR(" X", stepperX.sgt());
+            SERIAL_ECHOPAIR(" X", stepperX.homing_threshold());
           #endif
           #if Y_SENSORLESS
-            SERIAL_ECHOPAIR(" Y", stepperY.sgt());
+            SERIAL_ECHOPAIR(" Y", stepperY.homing_threshold());
           #endif
           #if Z_SENSORLESS
-            SERIAL_ECHOPAIR(" Z", stepperZ.sgt());
+            SERIAL_ECHOPAIR(" Z", stepperZ.homing_threshold());
           #endif
           SERIAL_EOL();
         #endif
@@ -2972,20 +3262,20 @@ void MarlinSettings::reset() {
           say_M914();
           SERIAL_ECHOPGM(" I1");
           #if HAS_X2_SENSORLESS
-            SERIAL_ECHOPAIR(" X", stepperX2.sgt());
+            SERIAL_ECHOPAIR(" X", stepperX2.homing_threshold());
           #endif
           #if HAS_Y2_SENSORLESS
-            SERIAL_ECHOPAIR(" Y", stepperY2.sgt());
+            SERIAL_ECHOPAIR(" Y", stepperY2.homing_threshold());
           #endif
           #if HAS_Z2_SENSORLESS
-            SERIAL_ECHOPAIR(" Z", stepperZ2.sgt());
+            SERIAL_ECHOPAIR(" Z", stepperZ2.homing_threshold());
           #endif
           SERIAL_EOL();
         #endif
 
         #if HAS_Z3_SENSORLESS
           say_M914();
-          SERIAL_ECHOLNPAIR(" I2 Z", stepperZ3.sgt());
+          SERIAL_ECHOLNPAIR(" I2 Z", stepperZ3.homing_threshold());
         #endif
 
       #endif // USE_SENSORLESS
@@ -3122,6 +3412,31 @@ void MarlinSettings::reset() {
       CONFIG_ECHO_HEADING("Tool-changing:");
       CONFIG_ECHO_START();
       M217_report(true);
+    #endif
+
+    #if ENABLED(BACKLASH_GCODE)
+      CONFIG_ECHO_HEADING("Backlash compensation:");
+      CONFIG_ECHO_START();
+      SERIAL_ECHOLNPAIR(
+        "  M425 F", backlash.get_correction(),
+        " X", LINEAR_UNIT(backlash.distance_mm[X_AXIS]),
+        " Y", LINEAR_UNIT(backlash.distance_mm[Y_AXIS]),
+        " Z", LINEAR_UNIT(backlash.distance_mm[Z_AXIS])
+        #ifdef BACKLASH_SMOOTHING_MM
+          , " S", LINEAR_UNIT(backlash.smoothing_mm)
+        #endif
+      );
+    #endif
+
+    #if HAS_FILAMENT_SENSOR
+      CONFIG_ECHO_HEADING("Filament runout sensor:");
+      CONFIG_ECHO_START();
+      SERIAL_ECHOLNPAIR(
+        "  M412 S", int(runout.enabled)
+        #ifdef FILAMENT_RUNOUT_DISTANCE_MM
+          , " D", LINEAR_UNIT(runout.runout_distance())
+        #endif
+      );
     #endif
   }
 

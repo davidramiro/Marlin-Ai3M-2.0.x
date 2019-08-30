@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (C) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  * Copyright (c) 2016 Bob Cousins bobcousins42@googlemail.com
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,20 +18,7 @@
  */
 #pragma once
 
-// --------------------------------------------------------------------------
-// Includes
-// --------------------------------------------------------------------------
-
-#include <stdint.h>
-
-#include <Arduino.h>
-
-#include <util/delay.h>
-#include <avr/eeprom.h>
-#include <avr/pgmspace.h>
-#include <avr/interrupt.h>
-#include <avr/io.h>
-
+#include "../shared/Marduino.h"
 #include "../shared/HAL_SPI.h"
 #include "fastio_AVR.h"
 #include "watchdog_AVR.h"
@@ -40,12 +27,20 @@
 #ifdef USBCON
   #include "HardwareSerial.h"
 #else
+  #define HardwareSerial_h // Hack to prevent HardwareSerial.h header inclusion
   #include "MarlinSerial.h"
 #endif
 
-// --------------------------------------------------------------------------
+#include <stdint.h>
+#include <util/delay.h>
+#include <avr/eeprom.h>
+#include <avr/pgmspace.h>
+#include <avr/interrupt.h>
+#include <avr/io.h>
+
+// ------------------------
 // Defines
-// --------------------------------------------------------------------------
+// ------------------------
 
 //#define analogInputToDigitalPin(IO) IO
 
@@ -60,20 +55,21 @@
 // On AVR this is in math.h?
 //#define square(x) ((x)*(x))
 
-// --------------------------------------------------------------------------
+// ------------------------
 // Types
-// --------------------------------------------------------------------------
+// ------------------------
 
 typedef uint16_t hal_timer_t;
 #define HAL_TIMER_TYPE_MAX 0xFFFF
 
 typedef int8_t pin_t;
 
+#define SHARED_SERVOS HAS_SERVOS
 #define HAL_SERVO_LIB Servo
 
-// --------------------------------------------------------------------------
+// ------------------------
 // Public Variables
-// --------------------------------------------------------------------------
+// ------------------------
 
 //extern uint8_t MCUSR;
 
@@ -105,9 +101,11 @@ typedef int8_t pin_t;
   #endif
 #endif
 
-// --------------------------------------------------------------------------
+// ------------------------
 // Public functions
-// --------------------------------------------------------------------------
+// ------------------------
+
+void HAL_init(void);
 
 //void cli(void);
 
@@ -116,9 +114,12 @@ typedef int8_t pin_t;
 inline void HAL_clear_reset_source(void) { MCUSR = 0; }
 inline uint8_t HAL_get_reset_source(void) { return MCUSR; }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 extern "C" {
   int freeMemory(void);
 }
+#pragma GCC diagnostic pop
 
 // timers
 #define HAL_TIMER_RATE          ((F_CPU) / 8)    // i.e., 2MHz or 2.5MHz

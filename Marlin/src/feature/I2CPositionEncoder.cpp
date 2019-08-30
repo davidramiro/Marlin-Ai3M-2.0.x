@@ -1,9 +1,9 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (C) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
- * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,6 +37,8 @@
 #include "../module/temperature.h"
 #include "../module/stepper.h"
 #include "../gcode/parser.h"
+
+#include "../feature/babystep.h"
 
 #include <Wire.h>
 
@@ -169,7 +171,7 @@ void I2CPositionEncoder::update() {
             const int32_t errorP = int32_t(sumP * (1.0f / (I2CPE_ERR_PRST_ARRAY_SIZE)));
             SERIAL_ECHO(axis_codes[encoderAxis]);
             SERIAL_ECHOLNPAIR(" - err detected: ", errorP * planner.steps_to_mm[encoderAxis], "mm; correcting!");
-            thermalManager.babystepsTodo[encoderAxis] = -LROUND(errorP);
+            babystep.add_steps(encoderAxis, -LROUND(errorP));
             errPrstIdx = 0;
           }
         }
@@ -180,7 +182,7 @@ void I2CPositionEncoder::update() {
       if (ABS(error) > threshold * planner.settings.axis_steps_per_mm[encoderAxis]) {
         //SERIAL_ECHOLN(error);
         //SERIAL_ECHOLN(position);
-        thermalManager.babystepsTodo[encoderAxis] = -LROUND(error / 2);
+        babystep.add_steps(encoderAxis, -LROUND(error / 2));
       }
     #endif
 
@@ -227,13 +229,11 @@ bool I2CPositionEncoder::passes_test(const bool report) {
   if (report) {
     if (H != I2CPE_MAG_SIG_GOOD) SERIAL_ECHOPGM("Warning. ");
     SERIAL_ECHO(axis_codes[encoderAxis]);
-    SERIAL_ECHOPGM(" axis ");
-    serialprintPGM(H == I2CPE_MAG_SIG_BAD ? PSTR("magnetic strip ") : PSTR("encoder "));
+    serial_ternary(H == I2CPE_MAG_SIG_BAD, PSTR(" axis "), PSTR("magnetic strip "), PSTR("encoder "));
     switch (H) {
       case I2CPE_MAG_SIG_GOOD:
       case I2CPE_MAG_SIG_MID:
-        SERIAL_ECHOLNPGM("passes test; field strength ");
-        serialprintPGM(H == I2CPE_MAG_SIG_GOOD ? PSTR("good.\n") : PSTR("fair.\n"));
+        serial_ternary(H == I2CPE_MAG_SIG_GOOD, PSTR("passes test; field strength "), PSTR("good"), PSTR("fair"), PSTR(".\n"));
         break;
       default:
         SERIAL_ECHOLNPGM("not detected!");
@@ -424,7 +424,6 @@ void I2CPositionEncoder::calibrate_steps_mm(const uint8_t iter) {
     travelledDistance = mm_from_count(ABS(stopCount - startCount));
 
     SERIAL_ECHOLNPAIR("Attempted travel: ", travelDistance, "mm");
-
     SERIAL_ECHOLNPAIR("   Actual travel:  ", travelledDistance, "mm");
 
     //Calculate new axis steps per unit

@@ -1,9 +1,9 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (C) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
- * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,10 @@
  * Utility functions
  */
 
+// I2S expander pin mapping.
+#define IS_I2S_EXPANDER_PIN(IO) TEST(IO, 7)
+#define I2S_EXPANDER_PIN_INDEX(IO) (IO & 0x7F)
+
 // Set pin as input
 #define _SET_INPUT(IO)          pinMode(IO, INPUT)
 
@@ -37,10 +41,10 @@
 #define _PULLUP(IO, v)          pinMode(IO, v ? INPUT_PULLUP : INPUT)
 
 // Read a pin wrapper
-#define READ(IO)                digitalRead(IO)
+#define READ(IO)                (IS_I2S_EXPANDER_PIN(IO) ? i2s_state(I2S_EXPANDER_PIN_INDEX(IO)) : digitalRead(IO))
 
 // Write to a pin wrapper
-#define WRITE(IO, v)            (TEST(IO, 7) ? i2s_write(IO & 0x7F, v) : digitalWrite(IO, v))
+#define WRITE(IO, v)            (IS_I2S_EXPANDER_PIN(IO) ? i2s_write(I2S_EXPANDER_PIN_INDEX(IO), v) : digitalWrite(IO, v))
 
 // Set pin as input wrapper
 #define SET_INPUT(IO)           _SET_INPUT(IO)
@@ -61,8 +65,11 @@
 #define extDigitalRead(IO)      digitalRead(IO)
 #define extDigitalWrite(IO,V)   digitalWrite(IO,V)
 
-#define PWM_PIN(P)              true
-#define USEABLE_HARDWARE_PWM(P) PWM_PIN(P)
+// PWM outputs
+#define PWM_PIN(P)              (P < 34 || P > 127) // NOTE Pins >= 34 are input only on ESP32, so they can't be used for output.
+
+// Toggle pin value
+#define TOGGLE(IO)              WRITE(IO, !READ(IO))
 
 //
 // Ports and functions

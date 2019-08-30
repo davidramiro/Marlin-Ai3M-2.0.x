@@ -1,9 +1,9 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (C) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
- * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,21 +56,31 @@
     uint8_t get_ADC_keyValue();
   #endif
 
-  #if HAS_GRAPHICAL_LCD
-    #define SETCURSOR(col, row) lcd_moveto(col * (MENU_FONT_WIDTH), (row + 1) * (MENU_FONT_HEIGHT))
-    #define SETCURSOR_RJ(len, row) lcd_moveto(LCD_PIXEL_WIDTH - len * (MENU_FONT_WIDTH), (row + 1) * (MENU_FONT_HEIGHT))
-    #define LCDPRINT(p) u8g.print(p)
-    #define LCDWRITE(c) u8g.print(c)
+  #if ENABLED(TOUCH_BUTTONS)
+    #define LCD_UPDATE_INTERVAL 50
   #else
-    #define SETCURSOR(col, row) lcd_moveto(col, row)
-    #define SETCURSOR_RJ(len, row) lcd_moveto(LCD_WIDTH - len, row)
-    #define LCDPRINT(p) lcd_put_u8str(p)
-    #define LCDWRITE(c) lcd_put_wchar(c)
+    #define LCD_UPDATE_INTERVAL 100
   #endif
 
-  #define LCD_UPDATE_INTERVAL 100
-
   #if HAS_LCD_MENU
+
+    #if HAS_GRAPHICAL_LCD
+      #define SETCURSOR(col, row) lcd_moveto(col * (MENU_FONT_WIDTH), (row + 1) * (MENU_FONT_HEIGHT))
+      #define SETCURSOR_RJ(len, row) lcd_moveto(LCD_PIXEL_WIDTH - (len) * (MENU_FONT_WIDTH), (row + 1) * (MENU_FONT_HEIGHT))
+      #define LCDPRINT(p) u8g.print(p)
+      #define LCDWRITE(c) u8g.print(c)
+    #else
+      #define SETCURSOR(col, row) lcd_moveto(col, row)
+      #define SETCURSOR_RJ(len, row) lcd_moveto(LCD_WIDTH - (len), row)
+      #define LCDPRINT(p) lcd_put_u8str(p)
+      #define LCDWRITE(c) lcd_put_wchar(c)
+    #endif
+
+    #include "lcdprint.h"
+
+    void _wrap_string(uint8_t &col, uint8_t &row, const char * const string, read_byte_cb_t cb_read_byte, const bool wordwrap=false);
+    inline void wrap_string_P(uint8_t &col, uint8_t &row, PGM_P const pstr, const bool wordwrap=false) { _wrap_string(col, row, pstr, read_byte_rom, wordwrap); }
+    inline void wrap_string(uint8_t &col, uint8_t &row, const char * const string, const bool wordwrap=false) { _wrap_string(col, row, string, read_byte_ram, wordwrap); }
 
     #if ENABLED(SDSUPPORT)
       #include "../sd/cardreader.h"
@@ -141,7 +151,7 @@
 
   #define BUTTON_PRESSED(BN) !READ(BTN_## BN)
 
-  #if BUTTON_EXISTS(ENC)
+  #if BUTTON_EXISTS(ENC) || ENABLED(TOUCH_BUTTONS)
     #define BLEN_C 2
     #define EN_C _BV(BLEN_C)
   #endif
@@ -205,7 +215,7 @@
 
 #endif
 
-#if BUTTON_EXISTS(BACK)
+#if BUTTON_EXISTS(BACK) || ENABLED(TOUCH_BUTTONS)
   #define BLEN_D 3
   #define EN_D _BV(BLEN_D)
   #define LCD_BACK_CLICKED() (buttons & EN_D)
@@ -248,37 +258,29 @@ public:
     #endif
   }
 
-  static inline void buzz(const long duration, const uint16_t freq) {
-    #if ENABLED(LCD_USE_I2C_BUZZER)
-      lcd.buzz(duration, freq);
-    #elif PIN_EXISTS(BEEPER)
-      buzzer.tone(duration, freq);
-    #else
-      UNUSED(duration); UNUSED(freq);
-    #endif
-  }
+  #if HAS_BUZZER
+    static void buzz(const long duration, const uint16_t freq);
+  #endif
+
+  #if ENABLED(LCD_HAS_STATUS_INDICATORS)
+    static void update_indicators();
+  #endif
 
   // LCD implementations
   static void clear_lcd();
   static void init_lcd();
 
-  #if HAS_SPI_LCD || EITHER(MALYAN_LCD, EXTENSIBLE_UI)
+  #if HAS_DISPLAY
+
     static void init();
     static void update();
     static void set_alert_status_P(PGM_P message);
-  #else // NO LCD
-    static inline void init() {}
-    static inline void update() {}
-    static inline void set_alert_status_P(PGM_P message) { UNUSED(message); }
-  #endif
-
-  #if HAS_SPI_LCD || ENABLED(EXTENSIBLE_UI)
 
     static char status_message[];
     static bool has_status();
 
-    static uint8_t status_message_level;      // Higher levels block lower levels
-    static inline void reset_alert_level() { status_message_level = 0; }
+    static uint8_t alert_level; // Higher levels block lower levels
+    static inline void reset_alert_level() { alert_level = 0; }
 
     #if ENABLED(STATUS_MESSAGE_SCROLLING)
       static uint8_t status_scroll_offset;
@@ -286,10 +288,16 @@ public:
       static char* status_and_len(uint8_t &len);
     #endif
 
+    static void abort_print();
+    static void pause_print();
+    static void resume_print();
+
     #if HAS_PRINT_PROGRESS
       #if ENABLED(LCD_SET_PROGRESS_MANUALLY)
         static uint8_t progress_bar_percent;
-        static void set_progress(const uint8_t progress) { progress_bar_percent = MIN(progress, 100); }
+        static void set_progress(const uint8_t progress) { progress_bar_percent = _MIN(progress, 100); }
+        static void set_progress_done() { set_progress(0x80 + 100); }
+        static void progress_reset() { if (progress_bar_percent & 0x80) set_progress(0); }
       #endif
       static uint8_t get_progress();
     #else
@@ -305,7 +313,14 @@ public:
       static inline void refresh(const LCDViewAction type) { lcdDrawUpdate = type; }
       static inline void refresh() { refresh(LCDVIEW_CLEAR_CALL_REDRAW); }
 
+      #if ENABLED(SHOW_CUSTOM_BOOTSCREEN)
+        static void draw_custom_bootscreen(const uint8_t frame=0);
+        static void show_custom_bootscreen();
+      #endif
+
       #if ENABLED(SHOW_BOOTSCREEN)
+        static void draw_marlin_bootscreen(const bool line2=false);
+        static void show_marlin_bootscreen();
         static void show_bootscreen();
       #endif
 
@@ -325,7 +340,7 @@ public:
           static millis_t progress_bar_ms;  // Start time for the current progress bar cycle
           static void draw_progress_bar(const uint8_t percent);
           #if PROGRESS_MSG_EXPIRE > 0
-            static millis_t MarlinUI::expire_status_ms; // = 0
+            static millis_t expire_status_ms; // = 0
             static inline void reset_progress_bar_timeout() { expire_status_ms = 0; }
           #endif
         #endif
@@ -345,7 +360,9 @@ public:
       #endif
 
       static void quick_feedback(const bool clear_buttons=true);
-      static void completion_feedback(const bool good=true);
+      #if HAS_BUZZER
+        static void completion_feedback(const bool good=true);
+      #endif
 
       #if DISABLED(LIGHTWEIGHT_UI)
         static void draw_status_message(const bool blink);
@@ -369,9 +386,13 @@ public:
     static void status_printf_P(const uint8_t level, PGM_P const fmt, ...);
     static void reset_status();
 
-  #else // MALYAN_LCD or NO LCD
+  #else // No LCD
 
+    static inline void init() {}
+    static inline void update() {}
     static inline void refresh() {}
+    static inline void return_to_status() {}
+    static inline void set_alert_status_P(PGM_P message) { UNUSED(message); }
     static inline void set_status(const char* const message, const bool persist=false) { UNUSED(message); UNUSED(persist); }
     static inline void set_status_P(PGM_P const message, const int8_t level=0) { UNUSED(message); UNUSED(level); }
     static inline void status_printf_P(const uint8_t level, PGM_P const fmt, ...) { UNUSED(level); UNUSED(fmt); }
@@ -411,17 +432,33 @@ public:
     static int16_t preheat_hotend_temp[2], preheat_bed_temp[2];
     static uint8_t preheat_fan_speed[2];
 
+    // Select Screen (modal NO/YES style dialog)
+    static bool selection;
+    static void set_selection(const bool sel) { selection = sel; }
+    static bool update_selection();
+
     static void manage_manual_move();
 
     static bool lcd_clicked;
     static bool use_click();
 
-    static void synchronize(PGM_P const msg=NULL);
+    static void synchronize(PGM_P const msg=nullptr);
 
     static screenFunc_t currentScreen;
-    static void goto_screen(const screenFunc_t screen, const uint32_t encoder=0, const uint8_t top=0, const uint8_t items=0);
+    static void goto_screen(const screenFunc_t screen, const uint16_t encoder=0, const uint8_t top=0, const uint8_t items=0);
     static void save_previous_screen();
-    static void goto_previous_screen();
+    static void goto_previous_screen(
+      #if ENABLED(TURBO_BACK_MENU_ITEM)
+        const bool is_back
+      #endif
+    );
+
+    #if ENABLED(TURBO_BACK_MENU_ITEM)
+      // Various menu items require a "void (*)()" to point to
+      // this function so a default argument *won't* work
+      static inline void goto_previous_screen() { goto_previous_screen(false); }
+    #endif
+
     static void return_to_status();
     static inline bool on_status_screen() { return currentScreen == status_screen; }
     static inline void run_current_screen() { (*currentScreen)(); }
@@ -448,12 +485,18 @@ public:
     #endif
 
     #if ENABLED(G26_MESH_VALIDATION)
-      static inline void chirp() { buzz(LCD_FEEDBACK_FREQUENCY_DURATION_MS, LCD_FEEDBACK_FREQUENCY_HZ); }
+      static inline void chirp() {
+        #if HAS_BUZZER
+          buzz(LCD_FEEDBACK_FREQUENCY_DURATION_MS, LCD_FEEDBACK_FREQUENCY_HZ);
+        #endif
+      }
     #endif
 
     #if ENABLED(AUTO_BED_LEVELING_UBL)
-      static void ubl_plot(const uint8_t x, const uint8_t inverted_y);
+      static void ubl_plot(const uint8_t x_plot, const uint8_t y_plot);
     #endif
+
+    static void draw_select_screen_prompt(PGM_P const pref, const char * const string=nullptr, PGM_P const suff=nullptr);
 
   #elif HAS_SPI_LCD
 
@@ -488,27 +531,42 @@ public:
       static volatile uint8_t slow_buttons;
       static uint8_t read_slow_buttons();
     #endif
+    #if ENABLED(TOUCH_BUTTONS)
+      static volatile uint8_t touch_buttons;
+      static uint8_t read_touch_buttons();
+    #endif
+
     static void update_buttons();
     static inline bool button_pressed() { return BUTTON_CLICK(); }
     #if EITHER(AUTO_BED_LEVELING_UBL, G26_MESH_VALIDATION)
       static void wait_for_release();
     #endif
 
-    static uint32_t encoderPosition;
+    static uint16_t encoderPosition;
 
     #if ENABLED(REVERSE_ENCODER_DIRECTION)
       #define ENCODERBASE -1
     #else
       #define ENCODERBASE +1
     #endif
-    #if ENABLED(REVERSE_MENU_DIRECTION)
+
+    #if EITHER(REVERSE_MENU_DIRECTION, REVERSE_SELECT_DIRECTION)
       static int8_t encoderDirection;
-      static inline void encoder_direction_normal() { encoderDirection = +(ENCODERBASE); }
-      static inline void encoder_direction_menus()  { encoderDirection = -(ENCODERBASE); }
+      static inline void encoder_direction_normal() { encoderDirection = ENCODERBASE; }
     #else
       static constexpr int8_t encoderDirection = ENCODERBASE;
       static inline void encoder_direction_normal() {}
+    #endif
+
+    #if ENABLED(REVERSE_MENU_DIRECTION)
+      static inline void encoder_direction_menus()  { encoderDirection = -(ENCODERBASE); }
+    #else
       static inline void encoder_direction_menus()  {}
+    #endif
+    #if ENABLED(REVERSE_SELECT_DIRECTION)
+      static inline void encoder_direction_select()  { encoderDirection = -(ENCODERBASE); }
+    #else
+      static inline void encoder_direction_select()  {}
     #endif
 
   #else
@@ -521,7 +579,7 @@ private:
 
   static void _synchronize();
 
-  #if HAS_SPI_LCD || ENABLED(EXTENSIBLE_UI)
+  #if HAS_DISPLAY
     static void finish_status(const bool persist);
   #endif
 

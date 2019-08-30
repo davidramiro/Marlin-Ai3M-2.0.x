@@ -1,9 +1,9 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (C) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
- * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,14 +19,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
 /**
  * Fast I/O Routines for Teensy 3.5 and Teensy 3.6
  * Use direct port manipulation to save scads of processor time.
  * Contributed by Triffid_Hunter and modified by Kliment, thinkyhead, Bob-the-Kuhn, et.al.
  */
-
-#pragma once
 
 #ifndef MASK
   #define MASK(PIN) (1 << PIN)
@@ -72,7 +71,6 @@
 
 #define READ(IO)              _READ(IO)
 
-#define WRITE_VAR(IO,V)       _WRITE_VAR(IO,V)
 #define WRITE(IO,V)           _WRITE(IO,V)
 #define TOGGLE(IO)            _TOGGLE(IO)
 
@@ -91,7 +89,6 @@
 #define extDigitalWrite(IO,V) digitalWrite(IO,V)
 
 #define PWM_PIN(P)            digitalPinHasPWM(P)
-#define USEABLE_HARDWARE_PWM(P) PWM_PIN(P)
 
 /**
  * Ports, functions, and pins

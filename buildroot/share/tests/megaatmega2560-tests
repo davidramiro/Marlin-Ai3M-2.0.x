@@ -9,7 +9,7 @@ set -e
 #
 # Backup pins_TRIGORILLA_14.h
 #
-cp Marlin/src/pins/pins_TRIGORILLA_14.h Marlin/src/pins/pins_TRIGORILLA_14.h.backup
+cp Marlin/src/pins/ramps/pins_TRIGORILLA_14.h Marlin/src/pins/ramps/pins_TRIGORILLA_14.h.backup
 
 #
 # Build with the default configurations

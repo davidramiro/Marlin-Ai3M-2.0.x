@@ -23,8 +23,6 @@
 
 #include "../inc/MarlinConfigPre.h"
 
-#include <stddef.h>
-
 void host_action(const char * const pstr, const bool eol=true);
 
 #ifdef ACTION_ON_KILL
@@ -47,6 +45,8 @@ void host_action(const char * const pstr, const bool eol=true);
 #endif
 
 #if ENABLED(HOST_PROMPT_SUPPORT)
+
+  extern const char CONTINUE_STR[];
 
   enum PromptReason : uint8_t {
     PROMPT_NOT_DEFINED,

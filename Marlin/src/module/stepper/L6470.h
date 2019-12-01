@@ -22,17 +22,14 @@
 #pragma once
 
 /**
- * module/stepper/indirection.h
- *
- * Stepper motor driver indirection to allow some stepper functions to
- * be done via SPI/I2c instead of direct pin manipulation.
- *
- * Copyright (c) 2015 Dominik Wenger
+ * stepper/L6470.h
+ * Stepper driver indirection for L6470 drivers
  */
 
 #include "../../inc/MarlinConfig.h"
 #include "../../libs/L6470/L6470_Marlin.h"
 
+// L6470 has STEP on normal pins, but DIR/ENABLE via SPI
 #define L6470_WRITE_DIR_COMMAND(STATE,Q) do{ L6470_dir_commands[Q] = (STATE ?  dSPIN_STEP_CLOCK_REV : dSPIN_STEP_CLOCK_FWD); }while(0)
 
 // X Stepper

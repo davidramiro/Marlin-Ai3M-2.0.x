@@ -62,7 +62,7 @@ void GcodeSuite::M190() {
     thermalManager.setTargetBed(parser.value_celsius());
     #if ENABLED(PRINTJOB_TIMER_AUTOSTART)
       if (parser.value_celsius() > BED_MINTEMP)
-        print_job_timer.start();
+        startOrResumeJob();
     #endif
   }
   else return;
@@ -71,7 +71,7 @@ void GcodeSuite::M190() {
     AnycubicTFT.BedHeatingStart();
   #endif
 
-  ui.set_status_P(thermalManager.isHeatingBed() ? PSTR(MSG_BED_HEATING) : PSTR(MSG_BED_COOLING));
+  ui.set_status_P(thermalManager.isHeatingBed() ? GET_TEXT(MSG_BED_HEATING) : GET_TEXT(MSG_BED_COOLING));
 
   thermalManager.wait_for_bed(no_wait_for_cooling);
 

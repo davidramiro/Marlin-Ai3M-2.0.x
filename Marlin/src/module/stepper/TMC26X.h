@@ -22,11 +22,14 @@
 #pragma once
 
 /**
- * tmc26x.h
+ * stepper/TMC26X.h
  * Stepper driver indirection for TMC26X drivers
  */
 
+#include "../../inc/MarlinConfig.h"
+
 // TMC26X drivers have STEP/DIR on normal pins, but ENABLE via SPI
+
 #include <SPI.h>
 #if defined(STM32GENERIC) && defined(STM32F7)
   #include "../../HAL/HAL_STM32_F4_F7/STM32F7/TMC2660.h"
@@ -85,7 +88,7 @@ void tmc26x_init_to_defaults();
 #endif
 
 // Z3 Stepper
-#if HAS_Z3_ENABLE && AXIS_DRIVER_TYPE_Z3(TMC26X)
+#if HAS_Z3_ENABLE && ENABLED(Z3_IS_TMC26X)
   extern TMC26XStepper stepperZ3;
   #define Z3_ENABLE_INIT NOOP
   #define Z3_ENABLE_WRITE(STATE) stepperZ3.setEnabled(STATE)

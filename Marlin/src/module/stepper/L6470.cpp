@@ -21,11 +21,11 @@
  */
 
 /**
- * module/stepper/L6470.cpp
+ * stepper/L6470.cpp
  * Stepper driver indirection for L6470 drivers
  */
 
-#include "../../inc/MarlinConfigPre.h"
+#include "../../inc/MarlinConfig.h"
 
 #if HAS_DRIVER(L6470)
 
@@ -140,4 +140,4 @@ void L6470_Marlin::init_to_defaults() {
   #endif
 }
 
-#endif // HAS_DRIVER(L6470)
+#endif // L6470

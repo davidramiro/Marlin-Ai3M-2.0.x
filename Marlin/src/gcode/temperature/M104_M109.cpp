@@ -20,12 +20,17 @@
  *
  */
 
+#include "../../inc/MarlinConfigPre.h"
+
+#if EXTRUDERS
+
 #include "../gcode.h"
 #include "../../module/temperature.h"
 #include "../../module/motion.h"
 #include "../../module/planner.h"
 #include "../../lcd/ultralcd.h"
-#include "../../Marlin.h"
+
+#include "../../Marlin.h" // for startOrResumeJob, etc.
 
 #ifdef ANYCUBIC_TFT_MODEL
   #include "../../lcd/anycubic_TFT.h"
@@ -33,6 +38,9 @@
 
 #if ENABLED(PRINTJOB_TIMER_AUTOSTART)
   #include "../../module/printcounter.h"
+  #if ENABLED(CANCEL_OBJECTS)
+    #include "../../feature/cancel_object.h"
+  #endif
 #endif
 
 #if ENABLED(SINGLENOZZLE)
@@ -129,7 +137,7 @@ void GcodeSuite::M109() {
         ui.reset_status();
       }
       else
-        print_job_timer.start();
+        startOrResumeJob();
     #endif
 
     #if HAS_DISPLAY
@@ -158,3 +166,5 @@ void GcodeSuite::M109() {
   #endif
 
 }
+
+#endif // EXTRUDERS

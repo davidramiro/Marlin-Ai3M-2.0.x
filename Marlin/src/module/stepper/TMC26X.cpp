@@ -21,26 +21,18 @@
  */
 
 /**
- * tmc26x.h
+ * stepper/TMC26X.cpp
  * Stepper driver indirection for TMC26X drivers
  */
 
-#include "../inc/MarlinConfig.h"
+#include "../../inc/MarlinConfig.h"
 
 //
 // TMC26X Driver objects and inits
 //
 #if HAS_DRIVER(TMC26X)
 
-#include "TMC26X.cpp"
-
-#include <SPI.h>
-
-#if defined(STM32GENERIC) && defined(STM32F7)
-  #include "../HAL/HAL_STM32_F4_F7/STM32F7/TMC2660.h"
-#else
-  #include <TMC26XStepper.h>
-#endif
+#include "TMC26X.h"
 
 #define _TMC26X_DEFINE(ST) TMC26XStepper stepper##ST(200, ST##_CS_PIN, ST##_STEP_PIN, ST##_DIR_PIN, ST##_MAX_CURRENT, ST##_SENSE_RESISTOR)
 

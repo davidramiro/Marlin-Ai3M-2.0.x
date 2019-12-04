@@ -37,8 +37,8 @@
   #include "../../module/scara.h"
 #endif
 
-const float cooldown_arc[2] = { 50, 50 };
-const uint8_t cooldown_target = MAX((parser.ushortval('T', 30)), 15);
+ab_float_t cooldown_arc = { 50, 50 };
+const uint8_t cooldown_target = _MAX((parser.ushortval('T', 30)), 15);
 
 /**
  * M888: Cooldown routine for the Anycubic Ultrabase (EXPERIMENTAL):
@@ -50,7 +50,7 @@ const uint8_t cooldown_target = MAX((parser.ushortval('T', 30)), 15);
  *  S<int>   Fan speed between 0 and 255, full speed if not specified
  */
 
-void plan_arc(const float (&cart)[XYZE], const float (&offset)[2], const uint8_t clockwise);
+void plan_arc(const xyze_pos_t &cart, const ab_float_t &offset, const uint8_t clockwise);
 
 void GcodeSuite::M888() {
 
@@ -63,10 +63,10 @@ void GcodeSuite::M888() {
 
     // set fan to speed <S>, if undefined blast at full speed
     uint8_t cooldown_fanspeed = parser.ushortval('S', 255);
-    thermalManager.set_fan_speed(0, MIN(cooldown_fanspeed, 255U));
+    thermalManager.set_fan_speed(0, _MIN(cooldown_fanspeed, 255U));
 
     // raise z by 2mm and move to X50, Y50
-    do_blocking_move_to_z(MIN(current_position[Z_AXIS] + 2, Z_MAX_POS), 5);
+    do_blocking_move_to_z(_MIN(current_position[Z_AXIS] + 2, Z_MAX_POS), 5);
     do_blocking_move_to_xy(50, 50, 100);
 
     while ((thermalManager.degBed() > cooldown_target)) {
@@ -83,9 +83,9 @@ void GcodeSuite::M888() {
     }
     // the bed should be under <T> now
     thermalManager.set_fan_speed(0,0);
-    do_blocking_move_to_xy(MAX(X_MIN_POS, 10), MIN(Y_MAX_POS, 190), 100);
+    do_blocking_move_to_xy(_MAX(X_MIN_POS, 10), _MIN(Y_MAX_POS, 190), 100);
     BUZZ(100, 659);
     BUZZ(150, 1318);
-    enqueue_and_echo_commands_P(PSTR("M84"));
+    queue.enqueue_now_P("M84");
     SERIAL_ECHOLNPGM("M888 cooldown routine done");
   }

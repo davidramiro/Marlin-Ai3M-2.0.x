@@ -27,6 +27,7 @@
 #include "../core/language.h"
 #include "../core/macros.h"
 #include "../core/serial.h"
+#include "../gcode/queue.h"
 #include "../feature/emergency_parser.h"
 #include "../feature/pause.h"
 #include "../inc/MarlinConfig.h"
@@ -161,7 +162,7 @@ void AnycubicTFTClass::StartPrint() {
       break;
     case 1:
       // regular sd pause
-      enqueue_and_echo_commands_P(PSTR("M24")); // unpark nozzle
+      queue.enqueue_now_P("M24"); // unpark nozzle
       #ifdef ANYCUBIC_TFT_DEBUG
         SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
         SERIAL_EOL();
@@ -192,7 +193,7 @@ void AnycubicTFTClass::StartPrint() {
       break;
     case 3:
       // paused by filament runout
-      enqueue_and_echo_commands_P(PSTR("M24")); // unpark nozzle and resume
+      queue.enqueue_now_P("M24"); // unpark nozzle and resume
       #ifdef ANYCUBIC_TFT_DEBUG
         SERIAL_ECHOLNPGM("DEBUG: M24 Resume from Filament Runout");
       #endif
@@ -249,9 +250,9 @@ void AnycubicTFTClass::PausePrint() {
         SERIAL_ECHOLNPGM("DEBUG: Filament Runout Pause");
       #endif
       // filament runout, retract and beep
-      enqueue_and_echo_commands_P(PSTR("G91")); // relative mode
-      enqueue_and_echo_commands_P(PSTR("G1 E-3 F1800")); // retract 3mm
-      enqueue_and_echo_commands_P(PSTR("G90")); // absolute mode
+      queue.enqueue_now_P("G91"); // relative mode
+      queue.enqueue_now_P("G1 E-3 F1800"); // retract 3mm
+      queue.enqueue_now_P("G90"); // absolute mode
       buzzer.tone(200, 1567);
       buzzer.tone(200, 1174);
       buzzer.tone(200, 1567);
@@ -260,7 +261,7 @@ void AnycubicTFTClass::PausePrint() {
       #ifdef ANYCUBIC_TFT_DEBUG
         SERIAL_ECHOLNPGM("DEBUG: Filament runout - Retract, beep and park.");
       #endif
-      enqueue_and_echo_commands_P(PSTR("M25")); // pause print and park nozzle
+      queue.enqueue_now_P("M25"); // pause print and park nozzle
       ai3m_pause_state = 3;
       #ifdef ANYCUBIC_TFT_DEBUG
         SERIAL_ECHOLNPGM("DEBUG: M25 sent, parking nozzle");
@@ -284,7 +285,7 @@ void AnycubicTFTClass::StopPrint(){
   wait_for_user = false;
   wait_for_heatup = false;
   card.stopSDPrint();
-  clear_command_queue();
+  queue.clear();
   #ifdef ANYCUBIC_TFT_DEBUG
     SERIAL_ECHOLNPGM("DEBUG: Stopped and cleared");
   #endif
@@ -306,7 +307,7 @@ void AnycubicTFTClass::StopPrint(){
 
 void AnycubicTFTClass::FilamentChangeResume(){
   // call M108 to break out of M600 pause
-  enqueue_and_echo_commands_P(PSTR("M108"));
+  queue.enqueue_now_P("M108");
   #ifdef ANYCUBIC_TFT_DEBUG
     SERIAL_ECHOLNPGM("DEBUG: M108 Resume called");
   #endif
@@ -332,7 +333,7 @@ void AnycubicTFTClass::FilamentChangePause(){
   #endif
 
   // call M600 and set display state to paused
-  enqueue_and_echo_commands_P(PSTR("M600"));
+  queue.enqueue_now_P("M600");
   TFTstate=ANYCUBIC_TFT_STATE_SDPAUSE_REQ;
   #ifdef ANYCUBIC_TFT_DEBUG
     SERIAL_ECHOLNPGM("DEBUG: M600 Pause called");
@@ -343,7 +344,7 @@ void AnycubicTFTClass::ReheatNozzle(){
   #ifdef ANYCUBIC_TFT_DEBUG
     SERIAL_ECHOLNPGM("DEBUG: Send reheat M108");
   #endif
-  enqueue_and_echo_commands_P(PSTR("M108"));
+  queue.enqueue_now_P("M108");
   #ifdef ANYCUBIC_TFT_DEBUG
     SERIAL_ECHOLNPGM("DEBUG: Resume heating");
   #endif
@@ -374,7 +375,7 @@ void AnycubicTFTClass::ParkAfterStop(){
   // only park the nozzle if homing was done before
   if (!axis_unhomed_error()) {
     // raize nozzle by 25mm respecting Z_MAX_POS
-    do_blocking_move_to_z(MIN(current_position[Z_AXIS] + 25, Z_MAX_POS), 5);
+    do_blocking_move_to_z(_MIN(current_position[Z_AXIS] + 25, Z_MAX_POS), 5);
     #ifdef ANYCUBIC_TFT_DEBUG
       SERIAL_ECHOLNPGM("DEBUG: SDSTOP: Park Z");
     #endif
@@ -384,8 +385,8 @@ void AnycubicTFTClass::ParkAfterStop(){
       SERIAL_ECHOLNPGM("DEBUG: SDSTOP: Park XY");
     #endif
   }
-  enqueue_and_echo_commands_P(PSTR("M84")); // disable stepper motors
-  enqueue_and_echo_commands_P(PSTR("M27")); // force report of SD status
+  queue.enqueue_now_P("M84"); // disable stepper motors
+  queue.enqueue_now_P("M27"); // force report of SD status
   ai3m_pause_state = 0;
   #ifdef ANYCUBIC_TFT_DEBUG
     SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
@@ -410,41 +411,41 @@ void AnycubicTFTClass::HandleSpecialMenu()
     SpecialMenu=true;
   } else if (strcmp(SelectedDirectory, "<auto tune hotend pid>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Auto Tune Hotend PID");
-    enqueue_and_echo_commands_P(PSTR("M106 S204\nM303 E0 S210 C15 U1"));
+    queue.enqueue_now_P("M106 S204\nM303 E0 S210 C15 U1");
   } else if (strcmp(SelectedDirectory, "<auto tune hotbed pid>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Auto Tune Hotbed Pid");
-    enqueue_and_echo_commands_P(PSTR("M303 E-1 S60 C6 U1"));
+    queue.enqueue_now_P("M303 E-1 S60 C6 U1");
   } else if (strcmp(SelectedDirectory, "<save eeprom>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Save EEPROM");
-    enqueue_and_echo_commands_P(PSTR("M500"));
+    queue.enqueue_now_P("M500");
     buzzer.tone(105, 1108);
     buzzer.tone(210, 1661);
   } else if (strcmp(SelectedDirectory, "<load fw defaults>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Load FW Defaults");
-    enqueue_and_echo_commands_P(PSTR("M502"));
+    queue.enqueue_now_P("M502");
     buzzer.tone(105, 1661);
     buzzer.tone(210, 1108);
   } else if (strcmp(SelectedDirectory, "<preheat bed>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Preheat Bed");
-    enqueue_and_echo_commands_P(PSTR("M140 S60"));
+    queue.enqueue_now_P("M140 S60");
   } else if (strcmp(SelectedDirectory, "<start mesh leveling>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Start Mesh Leveling");
-    enqueue_and_echo_commands_P(PSTR("G29 S1"));
+    queue.enqueue_now_P("G29 S1");
   } else if (strcmp(SelectedDirectory, "<next mesh point>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Next Mesh Point");
-    enqueue_and_echo_commands_P(PSTR("G29 S2"));
+    queue.enqueue_now_P("G29 S2");
   } else if (strcmp(SelectedDirectory, "<z up 0.1>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Z Up 0.1");
-    enqueue_and_echo_commands_P(PSTR("G91\nG1 Z+0.1\nG90"));
+    queue.enqueue_now_P("G91\nG1 Z+0.1\nG90");
   } else if (strcmp(SelectedDirectory, "<z up 0.02>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Z Up 0.02");
-    enqueue_and_echo_commands_P(PSTR("G91\nG1 Z+0.02\nG90"));
+    queue.enqueue_now_P("G91\nG1 Z+0.02\nG90");
   } else if (strcmp(SelectedDirectory, "<z down 0.02>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Z Down 0.02");
-    enqueue_and_echo_commands_P(PSTR("G91\nG1 Z-0.02\nG90"));
+    queue.enqueue_now_P("G91\nG1 Z-0.02\nG90");
   } else if (strcmp(SelectedDirectory, "<z down 0.1>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Z Down 0.1");
-    enqueue_and_echo_commands_P(PSTR("G91\nG1 Z-0.1\nG90"));
+    queue.enqueue_now_P("G91\nG1 Z-0.1\nG90");
   } else if (strcmp(SelectedDirectory, "<filamentchange pause>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: FilamentChange Pause");
     FilamentChangePause();
@@ -505,11 +506,11 @@ void AnycubicTFTClass::Ls()
     }
   }
   #ifdef SDSUPPORT
-    else if(card.isDetected())
+    else if(card.isMounted())
     {
       uint16_t cnt=filenumber;
       uint16_t max_files;
-      uint16_t dir_files=card.getnrfilenames();
+      uint16_t dir_files=card.countFilesInWorkDir();
 
       if((dir_files-filenumber)<4)
       {
@@ -534,8 +535,8 @@ void AnycubicTFTClass::Ls()
             SERIAL_ECHOLNPGM("/..");
           }
         } else {
-          card.getfilename(cnt-1);
-          //      card.getfilename(cnt);
+          card.selectFileByIndex(cnt-1);
+          //      card.selectFileByIndex(cnt);
 
           if(card.flag.filenameIsDir) {
             ANYCUBIC_SERIAL_PROTOCOLPGM("/");
@@ -570,7 +571,7 @@ void AnycubicTFTClass::CheckSDCardChange()
 
       if (LastSDstatus)
       {
-        card.initsd();
+        card.mount();
         ANYCUBIC_SERIAL_PROTOCOLPGM("J00"); // J00 SD Card inserted
         ANYCUBIC_SERIAL_ENTER();
         #ifdef ANYCUBIC_TFT_DEBUG
@@ -678,7 +679,7 @@ void AnycubicTFTClass::StateHandler()
             #endif
             if(!IsParked) {
               // park head and retract 2mm
-              enqueue_and_echo_commands_P(PSTR("M125 L2"));
+              queue.enqueue_now_P("M125 L2");
               IsParked = true;
             }
           }
@@ -714,7 +715,7 @@ void AnycubicTFTClass::StateHandler()
         }
         // did we park the hotend already?
         if((!IsParked) && (!card.isPrinting()) && (!planner.movesplanned())) {
-          enqueue_and_echo_commands_P(PSTR("G91\nG1 E-1 F1800\nG90"));  //retract
+          queue.enqueue_now_P("G91\nG1 E-1 F1800\nG90");  //retract
           ParkAfterStop();
           IsParked = true;
         }
@@ -866,7 +867,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
             #ifdef SDSUPPORT
               if(card.isPrinting()) {
                 ANYCUBIC_SERIAL_PROTOCOLPGM("A6V ");
-                if(card.isDetected())
+                if(card.isMounted())
                 {
                   ANYCUBIC_SERIAL_PROTOCOL(itostr3(card.percentDone()));
                 }
@@ -973,7 +974,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
               #endif
             break;
           case 12: // A12 kill
-            kill(PSTR(MSG_KILLED));
+            kill(PSTR(MSG_ERR_KILLED));
             break;
           case 13: // A13 SELECTION FILE
               #ifdef SDSUPPORT
@@ -1030,7 +1031,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
           case 15: // A15 RESUMING FROM OUTAGE
             //if((!planner.movesplanned())&&(!TFTresumingflag))
             //  {
-            //    if(card.isDetected())
+            //    if(card.isMounted())
             //      FlagResumFromOutage=true;
             //      ResumingFlag=1;
             //      card.startFileprint();
@@ -1050,7 +1051,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
               else if((CodeSeen('C'))&&(!planner.movesplanned()))
               {
                 if((current_position[Z_AXIS]<10))
-                enqueue_and_echo_commands_P(PSTR("G1 Z10")); //RASE Z AXIS
+                queue.enqueue_now_P("G1 Z10"); //RASE Z AXIS
                 tempvalue=constrain(CodeValue(),0,275);
                 thermalManager.setTargetHotend(tempvalue,0);
               }
@@ -1108,11 +1109,11 @@ void AnycubicTFTClass::GetCommandFromTFT()
             {
               if(CodeSeen('X')||CodeSeen('Y')||CodeSeen('Z'))
               {
-                if(CodeSeen('X')) enqueue_and_echo_commands_P(PSTR("G28 X"));
-                if(CodeSeen('Y')) enqueue_and_echo_commands_P(PSTR("G28 Y"));
-                if(CodeSeen('Z')) enqueue_and_echo_commands_P(PSTR("G28 Z"));
+                if(CodeSeen('X')) queue.enqueue_now_P("G28 X");
+                if(CodeSeen('Y')) queue.enqueue_now_P("G28 Y");
+                if(CodeSeen('Z')) queue.enqueue_now_P("G28 Z");
               }
-              else if(CodeSeen('C')) enqueue_and_echo_commands_P(PSTR("G28"));
+              else if(CodeSeen('C')) queue.enqueue_now_P("G28");
             }
             break;
           case 22: // A22 move X/Y/Z or extrude
@@ -1124,7 +1125,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
               if(CodeSeen('F')) // Set feedrate
               movespeed = CodeValue();
 
-              enqueue_and_echo_commands_P(PSTR("G91")); // relative coordinates
+              queue.enqueue_now_P("G91"); // relative coordinates
 
               if(CodeSeen('X')) // Move in X direction
               {
@@ -1132,7 +1133,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
                 if((coorvalue<=0.2)&&coorvalue>0) {sprintf_P(value,PSTR("G1 X0.1F%i"),movespeed);}
                 else if((coorvalue<=-0.1)&&coorvalue>-1) {sprintf_P(value,PSTR("G1 X-0.1F%i"),movespeed);}
                 else {sprintf_P(value,PSTR("G1 X%iF%i"),int(coorvalue),movespeed);}
-                enqueue_and_echo_command(value);
+                queue.enqueue_now_P(value);
               }
               else if(CodeSeen('Y')) // Move in Y direction
               {
@@ -1140,7 +1141,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
                 if((coorvalue<=0.2)&&coorvalue>0) {sprintf_P(value,PSTR("G1 Y0.1F%i"),movespeed);}
                 else if((coorvalue<=-0.1)&&coorvalue>-1) {sprintf_P(value,PSTR("G1 Y-0.1F%i"),movespeed);}
                 else {sprintf_P(value,PSTR("G1 Y%iF%i"),int(coorvalue),movespeed);}
-                enqueue_and_echo_command(value);
+                queue.enqueue_now_P(value);
               }
               else if(CodeSeen('Z')) // Move in Z direction
               {
@@ -1148,7 +1149,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
                 if((coorvalue<=0.2)&&coorvalue>0) {sprintf_P(value,PSTR("G1 Z0.1F%i"),movespeed);}
                 else if((coorvalue<=-0.1)&&coorvalue>-1) {sprintf_P(value,PSTR("G1 Z-0.1F%i"),movespeed);}
                 else {sprintf_P(value,PSTR("G1 Z%iF%i"),int(coorvalue),movespeed);}
-                enqueue_and_echo_command(value);
+                queue.enqueue_now_P(value);
               }
               else if(CodeSeen('E')) // Extrude
               {
@@ -1156,16 +1157,16 @@ void AnycubicTFTClass::GetCommandFromTFT()
                 if((coorvalue<=0.2)&&coorvalue>0) {sprintf_P(value,PSTR("G1 E0.1F%i"),movespeed);}
                 else if((coorvalue<=-0.1)&&coorvalue>-1) {sprintf_P(value,PSTR("G1 E-0.1F%i"),movespeed);}
                 else {sprintf_P(value,PSTR("G1 E%iF500"),int(coorvalue)); }
-                enqueue_and_echo_command(value);
+                queue.enqueue_now_P(value);
               }
-              enqueue_and_echo_commands_P(PSTR("G90")); // absolute coordinates
+              queue.enqueue_now_P("G90"); // absolute coordinates
             }
             ANYCUBIC_SERIAL_ENTER();
             break;
           case 23: // A23 preheat pla
             if((!planner.movesplanned())&& (TFTstate!=ANYCUBIC_TFT_STATE_SDPAUSE) && (TFTstate!=ANYCUBIC_TFT_STATE_SDOUTAGE))
             {
-              if((current_position[Z_AXIS]<10)) enqueue_and_echo_commands_P(PSTR("G1 Z10")); // RAISE Z AXIS
+              if((current_position[Z_AXIS]<10)) queue.enqueue_now_P("G1 Z10"); // RAISE Z AXIS
               thermalManager.setTargetBed(50);
               thermalManager.setTargetHotend(200, 0);
               ANYCUBIC_SERIAL_SUCC_START;
@@ -1175,7 +1176,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
           case 24:// A24 preheat abs
             if((!planner.movesplanned()) && (TFTstate!=ANYCUBIC_TFT_STATE_SDPAUSE) && (TFTstate!=ANYCUBIC_TFT_STATE_SDOUTAGE))
             {
-              if((current_position[Z_AXIS]<10)) enqueue_and_echo_commands_P(PSTR("G1 Z10")); //RAISE Z AXIS
+              if((current_position[Z_AXIS]<10)) queue.enqueue_now_P("G1 Z10"); //RAISE Z AXIS
               thermalManager.setTargetBed(80);
               thermalManager.setTargetHotend(240, 0);
 
@@ -1198,15 +1199,15 @@ void AnycubicTFTClass::GetCommandFromTFT()
           case 26: // A26 refresh SD
             #ifdef SDSUPPORT
               if (SelectedDirectory[0]==0) {
-                card.initsd();
+                card.mount();
               } else {
                 if ((SelectedDirectory[0] == '.') && (SelectedDirectory[1] == '.')) {
-                  card.updir();
+                  card.cdup();
                 } else {
                   if (SelectedDirectory[0] == '<') {
                     HandleSpecialMenu();
                   } else {
-                    card.chdir(SelectedDirectory);
+                    card.cd(SelectedDirectory);
                   }
                 }
               }
@@ -1247,27 +1248,27 @@ void AnycubicTFTClass::GetCommandFromTFT()
                 #ifdef ANYCUBIC_TFT_DEBUG
                   SERIAL_ECHOLNPGM("TFT Leveling started and movint to front left...");
                 #endif
-                enqueue_and_echo_commands_P(PSTR("G91\nG1 Z10 F240\nG90\nG28\nG29\nG1 X20 Y20 F6000\nG1 Z0 F240"));
+                queue.enqueue_now_P("G91\nG1 Z10 F240\nG90\nG28\nG29\nG1 X20 Y20 F6000\nG1 Z0 F240");
               } else if(CodeSeen('T')) {
                 #ifdef ANYCUBIC_TFT_DEBUG
                   SERIAL_ECHOLNPGM("TFT Level checkpoint front right...");
                 #endif
-                enqueue_and_echo_commands_P(PSTR("G1 Z5 F240\nG1 X190 Y20 F6000\nG1 Z0 F240"));
+                queue.enqueue_now_P("G1 Z5 F240\nG1 X190 Y20 F6000\nG1 Z0 F240");
               } else if(CodeSeen('C')) {
                 #ifdef ANYCUBIC_TFT_DEBUG
                   SERIAL_ECHOLNPGM("TFT Level checkpoint back right...");
                 #endif
-                enqueue_and_echo_commands_P(PSTR("G1 Z5 F240\nG1 X190 Y190 F6000\nG1 Z0 F240"));
+                queue.enqueue_now_P("G1 Z5 F240\nG1 X190 Y190 F6000\nG1 Z0 F240");
               } else if(CodeSeen('Q')) {
                 #ifdef ANYCUBIC_TFT_DEBUG
                   SERIAL_ECHOLNPGM("TFT Level checkpoint back right...");
                 #endif
-                enqueue_and_echo_commands_P(PSTR("G1 Z5 F240\nG1 X190 Y20 F6000\nG1 Z0 F240"));
+                queue.enqueue_now_P("G1 Z5 F240\nG1 X190 Y20 F6000\nG1 Z0 F240");
               } else if(CodeSeen('H')) {
                 #ifdef ANYCUBIC_TFT_DEBUG
                   SERIAL_ECHOLNPGM("TFT Level check no heating...");
                 #endif
-                //enqueue_and_echo_commands_P(PSTR("... TBD ..."));
+                //queue.enqueue_now_P("... TBD ..."));
                 ANYCUBIC_SERIAL_PROTOCOLPGM("J22"); // J22 Test print done
                 ANYCUBIC_SERIAL_ENTER();
                 #ifdef ANYCUBIC_TFT_DEBUG
@@ -1277,7 +1278,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
                 #ifdef ANYCUBIC_TFT_DEBUG
                   SERIAL_ECHOLNPGM("TFT Level check heating...");
                 #endif
-                //enqueue_and_echo_commands_P(PSTR("... TBD ..."));
+                //queue.enqueue_now_P("... TBD ..."));
                 ANYCUBIC_SERIAL_PROTOCOLPGM("J22"); // J22 Test print done
                 ANYCUBIC_SERIAL_ENTER();
                 #ifdef ANYCUBIC_TFT_DEBUG
@@ -1313,8 +1314,8 @@ void AnycubicTFTClass::GetCommandFromTFT()
                     s_zoffset=ftostr32(float(CodeValue())/100.0);
                     sprintf_P(value,PSTR("M851 Z"));
                     strcat(value,s_zoffset);
-                    enqueue_and_echo_command(value); // Apply Z-Probe offset
-                    enqueue_and_echo_commands_P(PSTR("M500")); // Save to EEPROM
+                    queue.enqueue_now_P(value); // Apply Z-Probe offset
+                    queue.enqueue_now_P("M500")); // Save to EEPROM
                   }
                 #endif
               }
@@ -1325,7 +1326,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
                 #ifdef ANYCUBIC_TFT_DEBUG
                   SERIAL_ECHOLNPGM("TFT Level saving data...");
                 #endif
-                enqueue_and_echo_commands_P(PSTR("M500\nM420 S1\nG1 Z10 F240\nG1 X0 Y0 F6000"));
+                queue.enqueue_now_P("M500\nM420 S1\nG1 Z10 F240\nG1 X0 Y0 F6000");
                 ANYCUBIC_SERIAL_SUCC_START;
                 ANYCUBIC_SERIAL_ENTER();
               }

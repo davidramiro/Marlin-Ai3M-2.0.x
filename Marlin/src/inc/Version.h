@@ -38,14 +38,14 @@
  * Defines the version of the Marlin-AI3M build. Not to be confused with
  * Marlin's own build number, e.g. 2.0.x.
  */
- #define CUSTOM_BUILD_VERSION "v1.4.7"
+ #define CUSTOM_BUILD_VERSION "v2.0.0"
 
   /**
    * The STRING_DISTRIBUTION_DATE represents when the binary file was built,
    * here we define this default string as the date where the latest release
    * version was tagged.
    */
-  #define STRING_DISTRIBUTION_DATE "2019-08-30"
+  #define STRING_DISTRIBUTION_DATE "2019-12-21"
 
 /**
  * Minimum Configuration.h and Configuration_adv.h file versions.

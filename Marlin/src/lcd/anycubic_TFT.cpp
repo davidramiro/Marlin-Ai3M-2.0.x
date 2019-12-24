@@ -990,7 +990,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
 
                   if(starpos!=NULL)
                   *(starpos-1)='\0';
-                  card.openFile(TFTstrchr_pointer + 4,true);
+                  card.openFileRead(TFTstrchr_pointer + 4);
                   if (card.isFileOpen()) {
                     ANYCUBIC_SERIAL_PROTOCOLPGM("J20"); // J20 Open successful
                     ANYCUBIC_SERIAL_ENTER();

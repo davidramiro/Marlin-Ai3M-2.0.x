@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../Marlin.h"
+#include "../MarlinCore.h"
 #include "../core/language.h"
 #include "../core/macros.h"
 #include "../core/serial.h"
@@ -284,7 +284,7 @@ void AnycubicTFTClass::StopPrint(){
   // stop print, disable heaters
   wait_for_user = false;
   wait_for_heatup = false;
-  card.stopSDPrint();
+  card.endFilePrint();
   queue.clear();
   #ifdef ANYCUBIC_TFT_DEBUG
     SERIAL_ECHOLNPGM("DEBUG: Stopped and cleared");
@@ -350,7 +350,7 @@ void AnycubicTFTClass::ReheatNozzle(){
   #endif
 
   // enable heaters again
-  HOTEND_LOOP() thermalManager.reset_heater_idle_timer(e);
+  HOTEND_LOOP() thermalManager.reset_hotend_idle_timer(e);
   #ifdef ANYCUBIC_TFT_DEBUG
     SERIAL_ECHOLNPGM("DEBUG: Clear flags");
   #endif
@@ -974,7 +974,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
               #endif
             break;
           case 12: // A12 kill
-            kill(PSTR(MSG_ERR_KILLED));
+            kill(PSTR(STR_ERR_KILLED));
             break;
           case 13: // A13 SELECTION FILE
               #ifdef SDSUPPORT
@@ -990,7 +990,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
 
                   if(starpos!=NULL)
                   *(starpos-1)='\0';
-                  card.openFile(TFTstrchr_pointer + 4,true);
+                  card.openFileRead(TFTstrchr_pointer + 4);
                   if (card.isFileOpen()) {
                     ANYCUBIC_SERIAL_PROTOCOLPGM("J20"); // J20 Open successful
                     ANYCUBIC_SERIAL_ENTER();
@@ -1085,10 +1085,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
             )
             {
               quickstop_stepper();
-              disable_X();
-              disable_Y();
-              disable_Z();
-              disable_E0();
+              disable_all_steppers();
             }
             ANYCUBIC_SERIAL_ENTER();
             break;

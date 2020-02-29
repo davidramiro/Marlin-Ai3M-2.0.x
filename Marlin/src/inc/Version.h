@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2020 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
  * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
@@ -25,7 +25,7 @@
  * Release version. Leave the Marlin version or apply a custom scheme.
  */
 #ifndef SHORT_BUILD_VERSION
-  #define SHORT_BUILD_VERSION "2.0.0"
+  #define SHORT_BUILD_VERSION "2.0.4.4"
 #endif
 
   /**
@@ -34,18 +34,15 @@
    */
   #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " (davidramiro, Github)"
 
-  /**
+/**
  * Defines the version of the Marlin-AI3M build. Not to be confused with
  * Marlin's own build number, e.g. 2.0.x.
  */
- #define CUSTOM_BUILD_VERSION "v2.0.0"
+ #define CUSTOM_BUILD_VERSION "v2.0.1"
 
-  /**
-   * The STRING_DISTRIBUTION_DATE represents when the binary file was built,
-   * here we define this default string as the date where the latest release
-   * version was tagged.
-   */
-  #define STRING_DISTRIBUTION_DATE "2019-12-21"
+#ifndef STRING_DISTRIBUTION_DATE
+  #define STRING_DISTRIBUTION_DATE "2020-02-27"
+#endif
 
 /**
  * Minimum Configuration.h and Configuration_adv.h file versions.
@@ -54,7 +51,7 @@
  * to alert users to major changes.
  */
 
-#define MARLIN_HEX_VERSION 020000
+#define MARLIN_HEX_VERSION 020004
 #ifndef REQUIRED_CONFIGURATION_H_VERSION
   #define REQUIRED_CONFIGURATION_H_VERSION MARLIN_HEX_VERSION
 #endif

@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2020 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
  * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
@@ -47,7 +47,7 @@ typedef uint64_t hal_timer_t;
 
 #if ENABLED(I2S_STEPPER_STREAM)
   #define STEPPER_TIMER_PRESCALE     1
-  #define STEPPER_TIMER_RATE         250000                           // 250khz, 4us pulses of i2s word clock
+  #define STEPPER_TIMER_RATE         250000                           // 250khz, 4µs pulses of i2s word clock
   #define STEPPER_TIMER_TICKS_PER_US ((STEPPER_TIMER_RATE) / 1000000) // stepper timer ticks per µs // wrong would be 0.25
 #else
   #define STEPPER_TIMER_PRESCALE     40

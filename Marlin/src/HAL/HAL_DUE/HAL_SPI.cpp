@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2020 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
  * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
@@ -240,7 +240,7 @@
   }
 
   // all the others
-  static uint32_t spiDelayCyclesX4 = (F_CPU) / 1000000; // 4uS => 125khz
+  static uint32_t spiDelayCyclesX4 = (F_CPU) / 1000000; // 4µs => 125khz
 
   static uint8_t spiTransferX(uint8_t b) { // using Mode 0
     int bits = 8;

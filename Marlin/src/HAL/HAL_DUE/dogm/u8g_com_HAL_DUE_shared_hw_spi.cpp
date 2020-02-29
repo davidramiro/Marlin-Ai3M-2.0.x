@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2020 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
  * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
@@ -63,7 +63,7 @@
 
 #include <U8glib.h>
 
-#include "../../../Marlin.h"
+#include "../../../MarlinCore.h"
 
 void spiBegin();
 void spiInit(uint8_t spiRate);

@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2020 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
  * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
@@ -24,7 +24,7 @@
 
 #include "../../inc/MarlinConfigPre.h"
 
-#if EITHER(WEBSUPPORT, EEPROM_SETTINGS)
+#if BOTH(WIFISUPPORT, WEBSUPPORT)
 
 #include "../../core/serial.h"
 
@@ -40,5 +40,5 @@ void spiffs_init() {
     SERIAL_ERROR_MSG("SPIFFS mount failed");
 }
 
-#endif // WEBSUPPORT
+#endif // WIFISUPPORT && WEBSUPPORT
 #endif // ARDUINO_ARCH_ESP32

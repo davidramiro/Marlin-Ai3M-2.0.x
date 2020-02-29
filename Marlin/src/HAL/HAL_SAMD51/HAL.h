@@ -1,7 +1,7 @@
 /**
  * Marlin 3D Printer Firmware
  *
- * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2020 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  * SAMD51 HAL developed by Giuliano Zaro (AKA GMagician)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -33,11 +33,9 @@
   #include "MarlinSerial_AGCM4.h"
 
   // Serial ports
-  #if !WITHIN(SERIAL_PORT, -1, 3)
-    #error "SERIAL_PORT must be from -1 to 3"
-  #endif
 
   // MYSERIAL0 required before MarlinSerial includes!
+
   #if SERIAL_PORT == -1
     #define MYSERIAL0 Serial
   #elif SERIAL_PORT == 0
@@ -46,18 +44,16 @@
     #define MYSERIAL0 Serial2
   #elif SERIAL_PORT == 2
     #define MYSERIAL0 Serial3
-  #else
+  #elif SERIAL_PORT == 3
     #define MYSERIAL0 Serial4
+  #else
+    #error "SERIAL_PORT must be from -1 to 3. Please update your configuration."
   #endif
 
   #ifdef SERIAL_PORT_2
-    #if !WITHIN(SERIAL_PORT_2, -1, 3)
-      #error "SERIAL_PORT_2 must be from -1 to 3"
-    #elif SERIAL_PORT_2 == SERIAL_PORT
-      #error "SERIAL_PORT_2 must be different than SERIAL_PORT"
-    #endif
-    #define NUM_SERIAL 2
-    #if SERIAL_PORT_2 == -1
+    #if SERIAL_PORT_2 == SERIAL_PORT
+      #error "SERIAL_PORT_2 must be different than SERIAL_PORT. Please update your configuration."
+    #elif SERIAL_PORT_2 == -1
       #define MYSERIAL1 Serial
     #elif SERIAL_PORT_2 == 0
       #define MYSERIAL1 Serial1
@@ -65,11 +61,34 @@
       #define MYSERIAL1 Serial2
     #elif SERIAL_PORT_2 == 2
       #define MYSERIAL1 Serial3
-    #else
+    #elif SERIAL_PORT_2 == 3
       #define MYSERIAL1 Serial4
+    #else
+      #error "SERIAL_PORT_2 must be from -1 to 3. Please update your configuration."
     #endif
+    #define NUM_SERIAL 2
   #else
     #define NUM_SERIAL 1
+  #endif
+
+  #ifdef DGUS_SERIAL_PORT
+    #if DGUS_SERIAL_PORT == SERIAL_PORT
+      #error "DGUS_SERIAL_PORT must be different than SERIAL_PORT. Please update your configuration."
+    #elif defined(SERIAL_PORT_2) && DGUS_SERIAL_PORT == SERIAL_PORT_2
+      #error "DGUS_SERIAL_PORT must be different than SERIAL_PORT_2. Please update your configuration."
+    #elif DGUS_SERIAL_PORT == -1
+      #define DGUS_SERIAL Serial
+    #elif DGUS_SERIAL_PORT == 0
+      #define DGUS_SERIAL Serial1
+    #elif DGUS_SERIAL_PORT == 1
+      #define DGUS_SERIAL Serial2
+    #elif DGUS_SERIAL_PORT == 2
+      #define DGUS_SERIAL Serial3
+    #elif DGUS_SERIAL_PORT == 2
+      #define DGUS_SERIAL Serial4
+    #else
+      #error "DGUS_SERIAL_PORT must be from -1 to 3. Please update your configuration."
+    #endif
   #endif
 
 #endif // ADAFRUIT_GRAND_CENTRAL_M4
@@ -82,8 +101,8 @@ typedef int8_t pin_t;
 //
 // Interrupts
 //
-#define CRITICAL_SECTION_START  uint32_t primask = __get_PRIMASK(); __disable_irq()
-#define CRITICAL_SECTION_END    if (!primask) __enable_irq()
+#define CRITICAL_SECTION_START()  uint32_t primask = __get_PRIMASK(); __disable_irq()
+#define CRITICAL_SECTION_END()    if (!primask) __enable_irq()
 #define ISRS_ENABLED() (!__get_PRIMASK())
 #define ENABLE_ISRS()  __enable_irq()
 #define DISABLE_ISRS() __disable_irq()
@@ -103,20 +122,20 @@ uint8_t eeprom_read_byte(uint8_t *pos);
 //
 // ADC
 //
-extern uint16_t HAL_adc_result;     // result of last ADC conversion
+extern uint16_t HAL_adc_result;     // Most recent ADC conversion
 
 #define HAL_ANALOG_SELECT(pin)
 
 void HAL_adc_init();
 
-#define HAL_ADC_FILTERED            // Disable oversampling done in Marlin as ADC values already filtered in HAL
-#define HAL_ADC_RESOLUTION  12
+//#define HAL_ADC_FILTERED          // Disable Marlin's oversampling. The HAL filters ADC values.
+#define HAL_ADC_RESOLUTION  10      // ... 12
 #define HAL_START_ADC(pin)  HAL_adc_start_conversion(pin)
 #define HAL_READ_ADC()      HAL_adc_result
 #define HAL_ADC_READY()     true
 
 void HAL_adc_start_conversion(const uint8_t adc_pin);
-uint16_t HAL_adc_get_result();
+inline uint16_t HAL_adc_get_result() { return HAL_adc_result; }
 
 //
 // Pin Map

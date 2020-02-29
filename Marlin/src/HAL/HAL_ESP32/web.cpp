@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2020 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
  * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
@@ -22,13 +22,14 @@
 
 #ifdef ARDUINO_ARCH_ESP32
 
-#include <SPIFFS.h>
-#undef DISABLED  // esp32-hal-gpio.h
-
 #include "../../inc/MarlinConfigPre.h"
 
-#if ENABLED(WEBSUPPORT)
+#if BOTH(WIFISUPPORT, WEBSUPPORT)
 
+#include "../../inc/MarlinConfig.h"
+
+#undef DISABLED  // esp32-hal-gpio.h
+#include <SPIFFS.h>
 #include "wifi.h"
 
 AsyncEventSource events("/events"); // event source (Server-Sent events)
@@ -43,5 +44,5 @@ void web_init() {
   server.onNotFound(onNotFound);
 }
 
-#endif // WEBSUPPORT
+#endif // WIFISUPPORT && WEBSUPPORT
 #endif // ARDUINO_ARCH_ESP32

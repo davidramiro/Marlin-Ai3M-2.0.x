@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2020 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
  * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
@@ -39,7 +39,7 @@
  * Checks for FAST PWM
  */
 #if ENABLED(FAST_PWM_FAN) && (ENABLED(USE_OCR2A_AS_TOP) && defined(TCCR2))
-    #error "USE_OCR2A_AS_TOP does not apply to devices with a single output TIMER2"
+  #error "USE_OCR2A_AS_TOP does not apply to devices with a single output TIMER2"
 #endif
 
 /**
@@ -58,4 +58,8 @@
  */
 #if HAS_TRINAMIC && ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
   #error "TMCStepper includes SoftwareSerial.h which is incompatible with ENDSTOP_INTERRUPTS_FEATURE. Disable ENDSTOP_INTERRUPTS_FEATURE to continue."
+#endif
+
+#if HAS_TMC_SW_SERIAL && ENABLED(MONITOR_DRIVER_STATUS)
+  #error "MONITOR_DRIVER_STATUS causes performance issues when used with SoftwareSerial-connected drivers. Disable MONITOR_DRIVER_STATUS or use hardware serial to continue."
 #endif

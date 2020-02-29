@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2020 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
  * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
@@ -27,12 +27,9 @@
 #include <rom/rtc.h>
 #include <driver/adc.h>
 #include <esp_adc_cal.h>
+#include <HardwareSerial.h>
 
 #include "../../inc/MarlinConfigPre.h"
-
-#if EITHER(EEPROM_SETTINGS, WEBSUPPORT)
-  #include "spiffs.h"
-#endif
 
 #if ENABLED(WIFISUPPORT)
   #include <ESPAsyncWebServer.h>
@@ -41,6 +38,7 @@
     #include "ota.h"
   #endif
   #if ENABLED(WEBSUPPORT)
+    #include "spiffs.h"
     #include "web.h"
   #endif
 #endif
@@ -78,30 +76,65 @@ volatile int numPWMUsed = 0,
 // Public functions
 // ------------------------
 
-void HAL_init() {
-  i2s_init();
-}
+#if ENABLED(WIFI_CUSTOM_COMMAND)
+
+  bool wifi_custom_command(char * const command_ptr) {
+    #if ENABLED(ESP3D_WIFISUPPORT)
+      return esp3dlib.parse(command_ptr);
+    #else
+      UNUSED(command_ptr);
+      return false;
+    #endif
+  }
+
+#endif
+
+void HAL_init() { i2s_init(); }
 
 void HAL_init_board() {
-  #if EITHER(EEPROM_SETTINGS, WEBSUPPORT)
-    spiffs_init();
-  #endif
 
-  #if ENABLED(WIFISUPPORT)
+  #if ENABLED(ESP3D_WIFISUPPORT)
+    esp3dlib.init();
+  #elif ENABLED(WIFISUPPORT)
     wifi_init();
     #if ENABLED(OTASUPPORT)
       OTA_init();
     #endif
     #if ENABLED(WEBSUPPORT)
+      spiffs_init();
       web_init();
     #endif
     server.begin();
   #endif
+
+  // ESP32 uses a GPIO matrix that allows pins to be assigned to hardware serial ports.
+  // The following code initializes hardware Serial1 and Serial2 to use user-defined pins
+  // if they have been defined.
+  #if defined(HARDWARE_SERIAL1_RX) && defined(HARDWARE_SERIAL1_TX)
+    HardwareSerial Serial1(1);
+    #ifdef TMC_BAUD_RATE  // use TMC_BAUD_RATE for Serial1 if defined
+      Serial1.begin(TMC_BAUD_RATE, SERIAL_8N1, HARDWARE_SERIAL1_RX, HARDWARE_SERIAL1_TX);
+    #else  // use default BAUDRATE if TMC_BAUD_RATE not defined
+      Serial1.begin(BAUDRATE, SERIAL_8N1, HARDWARE_SERIAL1_RX, HARDWARE_SERIAL1_TX);
+    #endif
+  #endif
+  #if defined(HARDWARE_SERIAL2_RX) && defined(HARDWARE_SERIAL2_TX)
+    HardwareSerial Serial2(2);
+    #ifdef TMC_BAUD_RATE  // use TMC_BAUD_RATE for Serial1 if defined
+      Serial2.begin(TMC_BAUD_RATE, SERIAL_8N1, HARDWARE_SERIAL2_RX, HARDWARE_SERIAL2_TX);
+    #else  // use default BAUDRATE if TMC_BAUD_RATE not defined
+      Serial2.begin(BAUDRATE, SERIAL_8N1, HARDWARE_SERIAL2_RX, HARDWARE_SERIAL2_TX);
+    #endif
+  #endif
+
 }
 
 void HAL_idletask() {
-  #if ENABLED(OTASUPPORT)
+  #if BOTH(WIFISUPPORT, OTASUPPORT)
     OTA_handle();
+  #endif
+  #if ENABLED(ESP3D_WIFISUPPORT)
+    esp3dlib.idletask();
   #endif
 }
 
@@ -161,6 +194,12 @@ void HAL_adc_init() {
   #if HAS_TEMP_ADC_5
     adc1_set_attenuation(get_channel(TEMP_5_PIN), ADC_ATTEN_11db);
   #endif
+  #if HAS_TEMP_ADC_6
+    adc2_set_attenuation(get_channel(TEMP_6_PIN), ADC_ATTEN_11db);
+  #endif
+  #if HAS_TEMP_ADC_7
+    adc3_set_attenuation(get_channel(TEMP_7_PIN), ADC_ATTEN_11db);
+  #endif
   #if HAS_HEATED_BED
     adc1_set_attenuation(get_channel(TEMP_BED_PIN), ADC_ATTEN_11db);
   #endif
@@ -183,7 +222,7 @@ void HAL_adc_init() {
   }
 }
 
-void HAL_adc_start_conversion(uint8_t adc_pin) {
+void HAL_adc_start_conversion(const uint8_t adc_pin) {
   const adc1_channel_t chan = get_channel(adc_pin);
   uint32_t mv;
   esp_adc_cal_get_voltage((adc_channel_t)chan, &characteristics[attenuations[chan]], &mv);

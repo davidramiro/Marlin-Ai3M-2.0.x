@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (c) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2020 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
  * Copyright (c) 2011 Camiel Gubbels / Erik van der Zalm
@@ -26,8 +26,8 @@
  *
  * These are based on the LPC1768 routines.
  *
- * Couldn't just call exact copies because the overhead resulted in the
- * one microsecond delay being about 4uS.
+ * Couldn't just call exact copies because the overhead
+ * results in a one microsecond delay taking about 4µS.
  */
 
 #ifdef __cplusplus

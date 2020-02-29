@@ -27,9 +27,18 @@
  * without adding new pin definitions to the board.
  */
 
+#ifdef S6_TFT_PINMAP
+  #ifndef __MARLIN_FIRMWARE__
+    #error "This pin mapping requires Marlin."
+  #endif
+
+  #define CLCD_SPI_CS         PC7
+  #define CLCD_MOD_RESET      PC6
+#endif
+
 #ifdef CR10_TFT_PINMAP
   #ifndef __MARLIN_FIRMWARE__
-    #error This pin mapping requires Marlin.
+    #error "This pin mapping requires Marlin."
   #endif
 
   #define CLCD_USE_SOFT_SPI
@@ -49,7 +58,7 @@
 
 #ifdef AO_EXP1_DEPRECATED_PINMAP
   #ifndef __MARLIN_FIRMWARE__
-    #error This pin mapping requires Marlin.
+    #error "This pin mapping requires Marlin."
   #endif
 
   #define CLCD_MOD_RESET                 LCD_PINS_D4
@@ -89,7 +98,7 @@
 
 #ifdef AO_EXP1_PINMAP
   #ifndef __MARLIN_FIRMWARE__
-    #error This pin mapping requires Marlin.
+    #error "This pin mapping requires Marlin."
   #endif
 
   #define CLCD_MOD_RESET                 LCD_PINS_ENABLE
@@ -134,7 +143,7 @@
 
 #ifdef AO_EXP2_PINMAP
   #ifndef __MARLIN_FIRMWARE__
-    #error This pin mapping requires Marlin.
+    #error "This pin mapping requires Marlin."
   #endif
 
   #define CLCD_SPI_CS                    BTN_EN1

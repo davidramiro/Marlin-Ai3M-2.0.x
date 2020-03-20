@@ -28,7 +28,6 @@
 #include "../core/macros.h"
 #include "../core/serial.h"
 #include "../gcode/queue.h"
-#include "../feature/emergency_parser.h"
 #include "../feature/pause.h"
 #include "../inc/MarlinConfig.h"
 #include "../libs/buzzer.h"

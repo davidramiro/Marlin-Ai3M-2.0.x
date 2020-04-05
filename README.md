@@ -64,7 +64,7 @@ I provided three different precompiled hex files: One for no modifications on th
 - Browse into the Marlin folder and run `Marlin.ino`
 - In the IDE, under `Tools -> Board` select `Genuino Mega 2560` and `ATmega2560`
 - Open Marlin.ino in the Marlin directory of this repo
-- [Customize if needed](https://github.com/davidramiro/Marlin-AI3M/wiki/Customization-&-Compiling) (e.g. motor directions and type at line `559` to `566` and line `857` to `865` in `Configuration.h`)
+- [Customize if needed](https://github.com/davidramiro/Marlin-AI3M/wiki/Customization-&-Compiling) (e.g. motor directions and type at line `678` to `690` and line `1055` to `1069` in `Configuration.h`)
 - Under `Sketch`, select `Export compiled binary`
 - Look for the .hex file in the Marlin directory (only use the `Marlin.ino.hex`, not the `Marlin.ino.with_bootloader.hex`!)
 

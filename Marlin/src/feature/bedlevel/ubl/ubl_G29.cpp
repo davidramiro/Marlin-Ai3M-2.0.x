@@ -27,7 +27,7 @@
   #include "../bedlevel.h"
 
   #include "../../../MarlinCore.h"
-  #include "../../../HAL/shared/persistent_store_api.h"
+  #include "../../../HAL/shared/eeprom_api.h"
   #include "../../../libs/hex_print_routines.h"
   #include "../../../module/configuration_store.h"
   #include "../../../lcd/ultralcd.h"
@@ -1611,7 +1611,7 @@
          * numbers for those locations should be 0.
          */
         #ifdef VALIDATE_MESH_TILT
-          auto d_from = []() { DEBUG_ECHOPGM("D from "); };
+          auto d_from = []{ DEBUG_ECHOPGM("D from "); };
           auto normed = [&](const xy_pos_t &pos, const float &zadd) {
             return normal.x * pos.x + normal.y * pos.y + zadd;
           };

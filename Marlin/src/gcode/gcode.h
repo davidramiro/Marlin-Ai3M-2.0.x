@@ -971,8 +971,16 @@ private:
     static void M1000();
   #endif
 
+  #if ENABLED(SDSUPPORT)
+    static void M1001();
+  #endif
+
   #if ENABLED(MAX7219_GCODE)
     static void M7219();
+  #endif
+
+  #if ENABLED(CONTROLLER_FAN_EDITABLE)
+    static void M710();
   #endif
 
   static void T(const uint8_t tool_index);

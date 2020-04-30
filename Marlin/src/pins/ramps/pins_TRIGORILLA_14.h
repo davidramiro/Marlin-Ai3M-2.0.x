@@ -31,10 +31,10 @@
 // Servos
 //
 #if MB(TRIGORILLA_14_11)
-  #define SERVO0_PIN        5
-  #define SERVO1_PIN        4
-  #define SERVO2_PIN       11
-  #define SERVO3_PIN        6
+  #define SERVO0_PIN                           5
+  #define SERVO1_PIN                           4
+  #define SERVO2_PIN                          11
+  #define SERVO3_PIN                           6
 #endif
 
 #define LARGE_FLASH        true
@@ -44,45 +44,45 @@
 //
 //#define ANYCUBIC_4_MAX_PRO_ENDSTOPS
 #if ENABLED(ANYCUBIC_4_MAX_PRO_ENDSTOPS)
-  #define X_MAX_PIN        43
-  #define Y_MIN_PIN        19
+  #define X_MAX_PIN                           43
+  #define Y_MIN_PIN                           19
 #endif
 
 // Labeled pins
-#define TRIGORILLA_HEATER_BED_PIN  8
-#define TRIGORILLA_HEATER_0_PIN   10
-#define TRIGORILLA_HEATER_1_PIN   45   // Anycubic Kossel: Unused
+#define TG_HEATER_BED_PIN                      8
+#define TG_HEATER_0_PIN                       10
+#define TG_HEATER_1_PIN                       45  // Anycubic Kossel: Unused
 
-#define TRIGORILLA_FAN0_PIN        9   // Anycubic Kossel: Usually the part cooling fan
-#define TRIGORILLA_FAN1_PIN        7   // Anycubic Kossel: Unused
-#define TRIGORILLA_FAN2_PIN       44   // Anycubic Kossel: Hotend fan
+#define TG_FAN0_PIN                            9  // Anycubic Kossel: Usually the part cooling fan
+#define TG_FAN1_PIN                            7  // Anycubic Kossel: Unused
+#define TG_FAN2_PIN                           44  // Anycubic Kossel: Hotend fan
 
 // Remap MOSFET pins to common usages:
 
-#define RAMPS_D10_PIN    TRIGORILLA_HEATER_0_PIN // HEATER_0_PIN is always RAMPS_D10_PIN in pins_RAMPS.h
+#define RAMPS_D10_PIN            TG_HEATER_0_PIN  // HEATER_0_PIN is always RAMPS_D10_PIN in pins_RAMPS.h
 
-#if HOTENDS > 1   // EEF and EEB
-  #define RAMPS_D9_PIN   TRIGORILLA_HEATER_1_PIN
+#if HOTENDS > 1                                   // EEF and EEB
+  #define RAMPS_D9_PIN           TG_HEATER_1_PIN
   #if !TEMP_SENSOR_BED
     // EEF
-    #define RAMPS_D8_PIN TRIGORILLA_FAN0_PIN
+    #define RAMPS_D8_PIN             TG_FAN0_PIN
   #else
     // EEB
-    #define RAMPS_D8_PIN TRIGORILLA_HEATER_BED_PIN
-    #define FAN_PIN      TRIGORILLA_FAN0_PIN    // Override pin 4 in pins_RAMPS.h
+    #define RAMPS_D8_PIN       TG_HEATER_BED_PIN
+    #define FAN_PIN                  TG_FAN0_PIN  // Override pin 4 in pins_RAMPS.h
   #endif
 #elif TEMP_SENSOR_BED
   // EFB (Anycubic Kossel default)
-  #define RAMPS_D9_PIN   TRIGORILLA_FAN0_PIN
-  #define RAMPS_D8_PIN   TRIGORILLA_HEATER_BED_PIN
+  #define RAMPS_D9_PIN               TG_FAN0_PIN
+  #define RAMPS_D8_PIN         TG_HEATER_BED_PIN
 #else
   // EFF
-  #define RAMPS_D9_PIN   TRIGORILLA_FAN1_PIN
-  #define RAMPS_D8_PIN   TRIGORILLA_FAN0_PIN
+  #define RAMPS_D9_PIN               TG_FAN1_PIN
+  #define RAMPS_D8_PIN               TG_FAN0_PIN
 #endif
 
 // Misc PINs
-#define BUZZER 			   31
+#define BUZZER		   31
 #define SDPOWER_PIN        -1
 #define SDSS               53
 #define LED_PIN            13
@@ -93,6 +93,12 @@
 	#define OUTAGETEST_PIN  79
 	#define OUTAGECON_PIN   58
 #endif
+
+#if HOTENDS > 1 || TEMP_SENSOR_BED                // EEF, EEB, EFB
+  #define FAN1_PIN                   TG_FAN1_PIN
+#endif
+#define FAN2_PIN                     TG_FAN2_PIN
+#define ORIG_E0_AUTO_FAN_PIN         TG_FAN2_PIN  // Used in Anycubic Kossel example config
 
 // Steppers
 #define X_STEP_PIN         54
@@ -128,6 +134,7 @@
 #define Y_MAX_PIN          -1
 #define Z_MAX_PIN          -1
 
+<<<<<<< HEAD
 // Fans
 #define FAN_PIN             9
 #define FAN2_PIN           44
@@ -161,6 +168,12 @@
   	#if NUM_SERVOS > 3
   		#define SERVO3_PIN    4
   	#endif
+=======
+  // LCD Display output pins
+  #if BOTH(NEWPANEL, PANEL_ONE)
+    #undef LCD_PINS_D6
+    #define LCD_PINS_D6                       57
+>>>>>>> marlin/2.0.x
   #endif
 #else // Trigorilla 1.1
   #ifdef NUM_SERVOS
@@ -170,6 +183,7 @@
       #define SERVO1_PIN 4
     #endif
 
+<<<<<<< HEAD
     #if NUM_SERVOS > 2
       #define SERVO2_PIN 11
     #endif
@@ -177,6 +191,24 @@
     #if NUM_SERVOS > 3
       #define SERVO3_PIN 6
     #endif
+=======
+  // LCD Display input pins
+  #if ENABLED(NEWPANEL)
+    #if ANY(VIKI2, miniVIKI)
+      #undef DOGLCD_A0
+      #define DOGLCD_A0                       23
+    #elif ENABLED(ELB_FULL_GRAPHIC_CONTROLLER)
+      #undef BEEPER_PIN
+      #define BEEPER_PIN                      33
+      #undef LCD_BACKLIGHT_PIN
+      #define LCD_BACKLIGHT_PIN               67
+    #endif
+  #elif ENABLED(MINIPANEL)
+    #undef BEEPER_PIN
+    #define BEEPER_PIN                        33
+    #undef DOGLCD_A0
+    #define DOGLCD_A0                         42
+>>>>>>> marlin/2.0.x
   #endif
 #endif // #if TRIGORILLA_VERSION
 

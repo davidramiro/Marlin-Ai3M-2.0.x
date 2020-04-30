@@ -214,6 +214,24 @@ bool wait_for_heatup = true;
 // For M0/M1, this flag may be cleared (by M108) to exit the wait-for-user loop
 #if HAS_RESUME_CONTINUE
   bool wait_for_user; // = false;
+
+  void wait_for_user_response(millis_t ms/*=0*/, const bool no_sleep/*=false*/) {
+    #if DISABLED(ADVANCED_PAUSE_FEATURE)
+      UNUSED(no_sleep);
+    #endif
+    KEEPALIVE_STATE(PAUSED_FOR_USER);
+    wait_for_user = true;
+    if (ms) ms += millis(); // expire time
+    while (wait_for_user && !(ms && ELAPSED(millis(), ms))) {
+      idle(
+        #if ENABLED(ADVANCED_PAUSE_FEATURE)
+          no_sleep
+        #endif
+      );
+    }
+    wait_for_user = false;
+  }
+
 #endif
 
 // Inactivity shutdown
@@ -422,52 +440,8 @@ void startOrResumeJob() {
   }
 
   inline void finishSDPrinting() {
-
-    bool did_state = true;
-    switch (card.sdprinting_done_state) {
-
-      case 1:
-        did_state = print_job_timer.duration() < 60 || queue.enqueue_one_P(PSTR("M31"));
-        break;
-
-      case 2:
-        did_state = queue.enqueue_one_P(PSTR("M77"));
-        break;
-
-      case 3:
-        #if ENABLED(LCD_SET_PROGRESS_MANUALLY)
-          ui.set_progress_done();
-        #endif
-        break;
-
-      case 4:                                   // Display "Click to Continue..."
-        #if HAS_RESUME_CONTINUE                 // 30 min timeout with LCD, 1 min without
-          did_state = queue.enqueue_one_P(
-            print_job_timer.duration() < 60 ? PSTR("M0Q1P1") : PSTR("M0Q1S" TERN(HAS_LCD_MENU, "1800", "60"))
-          );
-        #endif
-        break;
-
-      case 5:
-        #if ENABLED(POWER_LOSS_RECOVERY)
-          recovery.purge();
-        #endif
-
-        #if ENABLED(SD_FINISHED_STEPPERRELEASE) && defined(SD_FINISHED_RELEASECOMMAND)
-          planner.finish_and_disable();
-        #endif
-
-        #if ENABLED(SD_REPRINT_LAST_SELECTED_FILE)
-          ui.reselect_last_file();
-        #endif
-
-        SERIAL_ECHOLNPGM(STR_FILE_PRINTED);
-
-      default:
-        did_state = false;
-        card.sdprinting_done_state = 0;
-    }
-    if (did_state) ++card.sdprinting_done_state;
+    if (queue.enqueue_one_P(PSTR("M1001")))
+      marlin_state = MF_RUNNING;
   }
 
 #endif // SDSUPPORT
@@ -574,7 +548,7 @@ inline void manage_inactivity(const bool ignore_stepper_queue=false) {
   #endif
 
   #if ENABLED(USE_CONTROLLER_FAN)
-    controllerfan_update(); // Check if fan should be turned on to cool stepper drivers down
+    controllerFan.update(); // Check if fan should be turned on to cool stepper drivers down
   #endif
 
   #if ENABLED(AUTO_POWER_CONTROL)
@@ -1011,6 +985,10 @@ void setup() {
     SETUP_RUN(leds.setup());
   #endif
 
+  #if ENABLED(USE_CONTROLLER_FAN)     // Set up fan controller to initialize also the default configurations.
+    SETUP_RUN(controllerFan.setup());
+  #endif
+
   SETUP_RUN(ui.init());
   SETUP_RUN(ui.reset_status());       // Load welcome message early. (Retained if no errors exist.)
 
@@ -1072,10 +1050,6 @@ void setup() {
 
   #if HAS_BED_PROBE
     SETUP_RUN(endstops.enable_z_probe(false));
-  #endif
-
-  #if ENABLED(USE_CONTROLLER_FAN)
-    SET_OUTPUT(CONTROLLER_FAN_PIN);
   #endif
 
   #if HAS_STEPPER_RESET
@@ -1235,7 +1209,7 @@ void loop() {
     #if ENABLED(SDSUPPORT)
       card.checkautostart();
       if (card.flag.abort_sd_printing) abortSDPrinting();
-      if (card.sdprinting_done_state) finishSDPrinting();
+      if (marlin_state == MF_SD_COMPLETE) finishSDPrinting();
     #endif
 
     queue.advance();

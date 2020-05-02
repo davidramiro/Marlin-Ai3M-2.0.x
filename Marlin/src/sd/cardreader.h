@@ -49,7 +49,6 @@ typedef struct {
 
 class CardReader {
 public:
-  static uint8_t sdprinting_done_state;
   static card_flags_t flag;                         // Flags (above)
   static char filename[FILENAME_LENGTH],            // DOS 8.3 filename of the selected item
               longFilename[LONG_FILENAME_LENGTH];   // Long name of the selected item
@@ -276,11 +275,7 @@ private:
 #if ENABLED(USB_FLASH_DRIVE_SUPPORT)
   #define IS_SD_INSERTED() Sd2Card::isInserted()
 #elif PIN_EXISTS(SD_DETECT)
-  #if ENABLED(SD_DETECT_INVERTED)
-    #define IS_SD_INSERTED()  READ(SD_DETECT_PIN)
-  #else
-    #define IS_SD_INSERTED() !READ(SD_DETECT_PIN)
-  #endif
+  #define IS_SD_INSERTED() (READ(SD_DETECT_PIN) == SD_DETECT_STATE)
 #else
   // No card detect line? Assume the card is inserted.
   #define IS_SD_INSERTED() true

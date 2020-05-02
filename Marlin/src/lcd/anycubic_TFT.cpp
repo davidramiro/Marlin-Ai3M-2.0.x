@@ -28,7 +28,7 @@
 #include "../core/macros.h"
 #include "../core/serial.h"
 #include "../gcode/queue.h"
-#include "../feature/emergency_parser.h"
+#include "../feature/e_parser.h"
 #include "../feature/pause.h"
 #include "../inc/MarlinConfig.h"
 #include "../libs/buzzer.h"
@@ -37,6 +37,7 @@
 #include "../module/stepper.h"
 #include "../module/temperature.h"
 #include "../sd/cardreader.h"
+
 
 #ifdef ANYCUBIC_TFT_MODEL
 #include "anycubic_TFT.h"
@@ -103,9 +104,9 @@ void AnycubicTFTClass::Setup() {
   #endif
 
   #if ENABLED(ANYCUBIC_FILAMENT_RUNOUT_SENSOR)
-    pinMode(FIL_RUNOUT_PIN,INPUT);
-    WRITE(FIL_RUNOUT_PIN,HIGH);
-    if(READ(FIL_RUNOUT_PIN)==true)
+    pinMode(19,INPUT);
+    WRITE(19,HIGH);
+    if(READ(19)==true)
     {
       ANYCUBIC_SERIAL_PROTOCOLPGM("J15"); //J15 FILAMENT LACK
       ANYCUBIC_SERIAL_ENTER();
@@ -729,7 +730,7 @@ void AnycubicTFTClass::StateHandler()
 void AnycubicTFTClass::FilamentRunout()
 {
   #if ENABLED(ANYCUBIC_FILAMENT_RUNOUT_SENSOR)
-    FilamentTestStatus=READ(FIL_RUNOUT_PIN)&0xff;
+    FilamentTestStatus=READ(19)&0xff;
 
     if(FilamentTestStatus>FilamentTestLastStatus) {
       // filament sensor pin changed, save current timestamp.

@@ -57,7 +57,10 @@
 #define CONTROLLER_FAN_PIN  		 TG_FAN1_PIN
 #define FIL_RUNOUT_PIN	   19
 #define BUZZER 			   31
-#define BEEPER_PIN         31
+#define BEEPER_PIN 31
+#define SDSS 53
+#define LED_PIN 13
+#define SD_DETECT_PIN 49
 // Remap MOSFET pins to common usages:
 
 #define RAMPS_D10_PIN            TG_HEATER_0_PIN  // HEATER_0_PIN is always RAMPS_D10_PIN in pins_RAMPS.h

@@ -125,9 +125,21 @@
 // Enable the Bluetooth serial interface on AT90USB devices
 //#define BLUETOOTH
 
-// Choose the name from boards.h that matches your setup
+/**
+ * Select your version of the Trigorilla (RAMPS1.4) board here.
+ *
+ * BOARD_TRIGORILLA_14    = Default Trigorilla
+ * BOARD_TRIGORILLA_14_11 = Newer Trigorilla v1.1 (first seen late 2018)
+ *
+ * The only major difference is a slight change on the servo pin mapping.
+ * This setting only is relevant if you want to use BLtouch or similar
+ * mods to be used via servo pins.
+ * The new version is to be identified by a "TRIGORILLA1.1" lettering
+ * on the upper left of the PCB silkscreen.
+ */
 #ifndef MOTHERBOARD
   #define MOTHERBOARD BOARD_TRIGORILLA_14
+  //#define MOTHERBOARD BOARD_TRIGORILLA_14_11
 #endif
 
 // Name displayed in the LCD "Ready" message and Info menu
@@ -1477,13 +1489,13 @@
 
 // Preheat Constants
 #define PREHEAT_1_LABEL       "PLA"
-#define PREHEAT_1_TEMP_HOTEND 180
-#define PREHEAT_1_TEMP_BED     70
+#define PREHEAT_1_TEMP_HOTEND 200
+#define PREHEAT_1_TEMP_BED     50
 #define PREHEAT_1_FAN_SPEED     0 // Value from 0 to 255
 
 #define PREHEAT_2_LABEL       "ABS"
 #define PREHEAT_2_TEMP_HOTEND 240
-#define PREHEAT_2_TEMP_BED    110
+#define PREHEAT_2_TEMP_BED     80
 #define PREHEAT_2_FAN_SPEED     0 // Value from 0 to 255
 
 /**
@@ -2269,20 +2281,6 @@
 
 // Allow servo angle to be edited and saved to EEPROM
 //#define EDITABLE_SERVO_ANGLES
-
-/**
- * Select your version of the Trigorilla (RAMPS1.4) board here.
- *
- * 0 = Default Trigorilla
- * 1 = Newer Trigorilla v1.1 (first seen late 2018)
- *
- * The only major difference is a slight change on the servo pin mapping.
- * This setting only is relevant if you want to use BLtouch or similar
- * mods to be used via servo pins.
- * The new version is to be identified by a "TRIGORILLA1.1" lettering
- * on the upper left of the PCB silkscreen.
- */
-#define TRIGORILLA_VERSION 0
 
 // Enable Anycubic TFT
 #define ANYCUBIC_TFT_MODEL
